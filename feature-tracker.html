@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Feature Request Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root{--bg:#0e0f11;--surface:#16181c;--surface-2:#1e2025;--border:#2a2d35;--border-hover:#3e4250;--text:#e8eaf0;--text-2:#8b8fa8;--text-3:#565a70;--accent:#7c6af7;--accent-hover:#6b59e8;--accent-glow:rgba(124,106,247,.18);--c-low:#4caf82;--c-medium:#e8a837;--c-high:#e8544a;--c-open:#5b9cf6;--c-progress:#e8a837;--c-done:#4caf82;--radius:10px;--radius-lg:16px;--shadow:0 2px 16px rgba(0,0,0,.4);--font-display:"Syne",sans-serif;--font-mono:"DM Mono",monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:14px;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+#root{position:relative;z-index:1}
+.app{max-width:1100px;margin:0 auto;padding:40px 20px 80px}
+.app-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:32px;flex-wrap:wrap}
+.app-title{font-family:var(--font-display);font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-1px;line-height:1.1;background:linear-gradient(135deg,#e8eaf0 30%,#7c6af7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.app-subtitle{color:var(--text-2);font-size:13px;margin-top:4px;font-style:italic}
+.stats-bar{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:28px}
+.stat-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 8px;gap:2px;border-right:1px solid var(--border);transition:background .2s}
+.stat-item:last-child{border-right:none}
+.stat-item:hover{background:var(--surface-2)}
+.stat-value{font-family:var(--font-display);font-size:22px;font-weight:700}
+.stat-label{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.08em}
+.stat-open .stat-value{color:var(--c-open)}.stat-progress .stat-value{color:var(--c-progress)}.stat-done .stat-value{color:var(--c-done)}.stat-high .stat-value{color:var(--c-high)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.filter-bar{display:flex;gap:4px;flex-wrap:wrap}
+.filter-tab{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-family:var(--font-mono);font-size:13px;cursor:pointer;transition:all .18s}
+.filter-tab:hover{border-color:var(--border-hover);color:var(--text)}
+.filter-tab.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+.tab-count{background:var(--surface-2);border-radius:999px;padding:1px 7px;font-size:11px;color:var(--text-3)}
+.filter-tab.active .tab-count{background:var(--accent-glow);color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:var(--radius);border:none;font-family:var(--font-mono);font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);box-shadow:0 0 20px var(--accent-glow)}
+.btn-ghost{background:transparent;color:var(--text-2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border-hover);color:var(--text)}
+.btn-icon{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:14px;cursor:pointer;transition:all .18s;line-height:1}
+.btn-icon:hover{border-color:var(--border-hover);color:var(--text)}
+.btn-edit:hover{border-color:var(--accent);color:var(--accent)}
+.btn-delete:hover{border-color:var(--c-high);color:var(--c-high)}
+.btn-delete.confirm{border-color:var(--c-high);color:#fff;background:var(--c-high);font-weight:700}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,transform .15s,box-shadow .2s;animation:card-in .28s ease both}
+@keyframes card-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.card:hover{border-color:var(--border-hover);transform:translateY(-2px);box-shadow:var(--shadow)}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.priority-badge{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:999px;border:1px solid var(--badge-color,#555);color:var(--badge-color,#555);background:color-mix(in srgb,var(--badge-color) 12%,transparent)}
+.card-date{font-size:11px;color:var(--text-3)}
+.card-title{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text);line-height:1.3}
+.card-desc{font-size:13px;color:var(--text-2);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
+.card-actions{display:flex;gap:6px}
+.status-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid;font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:all .18s}
+.status-icon{font-size:13px}
+.status-open{border-color:var(--c-open);color:var(--c-open);background:color-mix(in srgb,var(--c-open) 10%,transparent)}
+.status-in-progress{border-color:var(--c-progress);color:var(--c-progress);background:color-mix(in srgb,var(--c-progress) 10%,transparent)}
+.status-completed{border-color:var(--c-done);color:var(--c-done);background:color-mix(in srgb,var(--c-done) 10%,transparent)}
+.status-btn:hover{filter:brightness(1.2)}
+.empty-state{text-align:center;padding:80px 20px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty-icon{font-size:48px;color:var(--text-3);animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.empty-state h3{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--text)}
+.empty-state p{color:var(--text-2);font-size:13px;max-width:300px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;animation:fade-in .2s ease}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);width:100%;max-width:520px;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:modal-in .25s cubic-bezier(.34,1.56,.64,1) both;overflow:hidden}
+@keyframes modal-in{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+.modal-title{font-family:var(--font-display);font-size:18px;font-weight:700}
+.modal form{padding:24px;display:flex;flex-direction:column;gap:18px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-2);font-weight:500}
+input[type="text"],textarea,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;transition:border-color .18s,box-shadow .18s;outline:none;resize:vertical}
+input[type="text"]:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+input.input-error,textarea.input-error{border-color:var(--c-high)}
+.error-msg{font-size:12px;color:var(--c-high)}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b8fa8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.stats-bar{display:grid;grid-template-columns:repeat(3,1fr)}.field-row{grid-template-columns:1fr}.toolbar{flex-direction:column;align-items:stretch}.filter-bar{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useCallback, useEffect, useRef } = React;
+
+// ── Costants ──
+const PRIORITIES = ["Low", "Medium", "High"];
+const STATUSES   = ["Open", "In Progress", "Completed"];
+
+const PRIORITY_META = {
+  Low:    { color: "var(--c-low)" },
+  Medium: { color: "var(--c-medium)" },
+  High:   { color: "var(--c-high)" },
+};
+
+const STATUS_META = {
+  "Open":        { label: "Open",        icon: "◎" },
+  "In Progress": { label: "In Progress", icon: "◑" },
+  "Completed":   { label: "Completed",   icon: "●" },
+};
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
+}
+
+// ── Seed Data ──
+const SEED = [
+  { id:"f1", title:"Dark mode support", description:"Add a toggle to switch between light and dark themes across the entire application.", priority:"High",   status:"In Progress", createdAt:"2025-03-01T10:00:00.000Z" },
+  { id:"f2", title:"Export to CSV",     description:"Allow users to export all feature requests to a CSV file for offline review and sharing.", priority:"Medium", status:"Open",        createdAt:"2025-03-05T14:30:00.000Z" },
+  { id:"f3", title:"Email notifications", description:"Send email alerts when a feature request status changes or a comment is added.", priority:"Low",    status:"Open",        createdAt:"2025-03-08T09:15:00.000Z" },
+  { id:"f4", title:"Keyboard shortcuts", description:"Implement global keyboard shortcuts for common actions like adding, editing, and filtering.", priority:"Medium", status:"Completed",   createdAt:"2025-02-20T11:45:00.000Z" },
+  { id:"f5", title:"Bulk status update", description:"Select multiple feature requests and update their status simultaneously.", priority:"High",   status:"Open",        createdAt:"2025-03-10T16:00:00.000Z" },
+];
+
+// ── useFeatures hook ──
+function useFeatures() {
+  const [features, setFeatures] = useState(() => {
+    try { const r = localStorage.getItem("ft_data"); if (r) return JSON.parse(r); } catch(_){}
+    return SEED;
+  });
+
+  const persist = useCallback((updated) => {
+    setFeatures(updated);
+    try { localStorage.setItem("ft_data", JSON.stringify(updated)); } catch(_){}
+  }, []);
+
+  const addFeature = useCallback((data) => {
+    const f = { id: Date.now().toString(36)+Math.random().toString(36).slice(2), ...data, title: data.title.trim(), description: data.description.trim(), createdAt: new Date().toISOString() };
+    persist([f, ...features]);
+  }, [features, persist]);
+
+  const updateFeature = useCallback((id, data) => {
+    persist(features.map(f => f.id === id ? {...f, ...data} : f));
+  }, [features, persist]);
+
+  const deleteFeature = useCallback((id) => {
+    persist(features.filter(f => f.id !== id));
+  }, [features, persist]);
+
+  const updateStatus = useCallback((id, status) => {
+    persist(features.map(f => f.id === id ? {...f, status} : f));
+  }, [features, persist]);
+
+  return { features, addFeature, updateFeature, deleteFeature, updateStatus };
+}
+
+// ── StatsBar ──
+function StatsBar({ features }) {
+  const total      = features.length;
+  const open       = features.filter(f => f.status === "Open").length;
+  const inProgress = features.filter(f => f.status === "In Progress").length;
+  const completed  = features.filter(f => f.status === "Completed").length;
+  const high       = features.filter(f => f.priority === "High").length;
+  const stats = [
+    { label:"Total",       value:total,      cls:"" },
+    { label:"Open",        value:open,       cls:"stat-open" },
+    { label:"In Progress", value:inProgress, cls:"stat-progress" },
+    { label:"Completed",   value:completed,  cls:"stat-done" },
+    { label:"High Priority",value:high,      cls:"stat-high" },
+  ];
+  return (
+    <div className="stats-bar">
+      {stats.map(s => (
+        <div key={s.label} className={`stat-item ${s.cls}`}>
+          <span className="stat-value">{s.value}</span>
+          <span className="stat-label">{s.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── FilterBar ──
+function FilterBar({ active, onChange, counts }) {
+  const tabs = ["All", ...STATUSES];
+  return (
+    <nav className="filter-bar">
+      {tabs.map(tab => {
+        const count = tab === "All" ? Object.values(counts).reduce((a,b)=>a+b,0) : (counts[tab] ?? 0);
+        return (
+          <button key={tab} className={`filter-tab ${active===tab?"active":""}`} onClick={()=>onChange(tab)}>
+            {tab !== "All" && <span className="tab-icon">{STATUS_META[tab]?.icon}</span>}
+            {tab}
+            <span className="tab-count">{count}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ── FeatureCard ──
+function FeatureCard({ feature, onEdit, onDelete, onStatusChange }) {
+  const [confirm, setConfirm] = useState(false);
+  const pm = PRIORITY_META[feature.priority];
+  const sm = STATUS_META[feature.status];
+  const statusCls = "status-"+feature.status.replace(" ","-").toLowerCase();
+
+  function handleDelete() {
+    if (confirm) { onDelete(feature.id); }
+    else { setConfirm(true); }
+  }
+
+  function cycleStatus() {
+    const idx = STATUSES.indexOf(feature.status);
+    onStatusChange(feature.id, STATUSES[(idx+1) % STATUSES.length]);
+  }
+
+  return (
+    <article className={`card ${statusCls}`}>
+      <div className="card-top">
+        <span className="priority-badge" style={{"--badge-color": pm.color}}>{feature.priority}</span>
+        <span className="card-date">{formatDate(feature.createdAt)}</span>
+      </div>
+      <h3 className="card-title">{feature.title}</h3>
+      <p className="card-desc">{feature.description}</p>
+      <div className="card-footer">
+        <button className={`status-btn ${statusCls}`} onClick={cycleStatus} title="Click to advance status">
+          <span className="status-icon">{sm.icon}</span>{sm.label}
+        </button>
+        <div className="card-actions">
+          <button className="btn-icon btn-edit" onClick={()=>onEdit(feature)} aria-label="Edit">✎</button>
+          <button
+            className={`btn-icon btn-delete ${confirm?"confirm":""}`}
+            onClick={handleDelete}
+            onBlur={()=>setConfirm(false)}
+            title={confirm?"Click again to confirm":"Delete"}
+          >{confirm?"!":"✕"}</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+// ── FeatureModal ──
+const EMPTY_FORM = { title:"", description:"", priority:"Medium", status:"Open" };
+
+function FeatureModal({ feature, onSave, onClose }) {
+  const [form, setForm]     = useState(feature ? {...feature} : {...EMPTY_FORM});
+  const [errors, setErrors] = useState({});
+  const titleRef = useRef(null);
+  const isEdit   = Boolean(feature);
+
+  useEffect(() => { titleRef.current?.focus(); }, []);
+  useEffect(() => {
+    const h = e => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  function handleChange(e) {
+    const {name, value} = e.target;
+    setForm(f => ({...f, [name]:value}));
+    if (errors[name]) setErrors(er => ({...er, [name]:undefined}));
+  }
+
+  function validate() {
+    const errs = {};
+    if (!form.title.trim())       errs.title = "Title is required.";
+    else if (form.title.trim().length < 3) errs.title = "Title must be at least 3 characters.";
+    if (!form.description.trim()) errs.description = "Description is required.";
+    return errs;
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    onSave(form);
+    onClose();
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true">
+        <div className="modal-header">
+          <h2 className="modal-title">{isEdit ? "Edit Request" : "New Request"}</h2>
+          <button className="btn-icon" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="field">
+            <label htmlFor="title">Title</label>
+            <input ref={titleRef} id="title" name="title" type="text" value={form.title} onChange={handleChange}
+              placeholder="Short, descriptive title…" className={errors.title?"input-error":""} autoComplete="off"/>
+            {errors.title && <span className="error-msg">{errors.title}</span>}
+          </div>
+          <div className="field">
+            <label htmlFor="description">Description</label>
+            <textarea id="description" name="description" value={form.description} onChange={handleChange}
+              placeholder="What should this feature do?" rows={4} className={errors.description?"input-error":""}/>
+            {errors.description && <span className="error-msg">{errors.description}</span>}
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="priority">Priority</label>
+              <select id="priority" name="priority" value={form.priority} onChange={handleChange}>
+                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="status">Status</label>
+              <select id="status" name="status" value={form.status} onChange={handleChange}>
+                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">{isEdit?"Save Changes":"Add Request"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── EmptyState ──
+function EmptyState({ filter, onAdd }) {
+  const isFiltered = filter !== "All";
+  return (
+    <div className="empty-state">
+      <div className="empty-icon">{isFiltered ? "◎" : "✦"}</div>
+      <h3>{isFiltered ? `No "${filter}" requests` : "No feature requests yet"}</h3>
+      <p>{isFiltered ? "Try a different filter or add a new request." : "Start tracking your feature ideas — add the first one."}</p>
+      {!isFiltered && <button className="btn btn-primary" onClick={onAdd}>Add First Request</button>}
+    </div>
+  );
+}
+
+// ── App ──
+function App() {
+  const { features, addFeature, updateFeature, deleteFeature, updateStatus } = useFeatures();
+  const [filter, setFilter] = useState("All");
+  const [modal,  setModal]  = useState(null);
+
+  const filtered = useMemo(() => filter === "All" ? features : features.filter(f => f.status === filter), [features, filter]);
+  const counts   = useMemo(() => {
+    const c = {};
+    STATUSES.forEach(s => { c[s] = features.filter(f => f.status === s).length; });
+    return c;
+  }, [features]);
+
+  function handleSave(formData) {
+    if (modal && modal.id) updateFeature(modal.id, formData);
+    else addFeature(formData);
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="header-left">
+          <h1 className="app-title">Feature Tracker</h1>
+          <p className="app-subtitle">Track, prioritize, and ship great ideas</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setModal("add")}>+ New Request</button>
+      </header>
+
+      <StatsBar features={features} />
+
+      <div className="toolbar">
+        <FilterBar active={filter} onChange={setFilter} counts={counts} />
+      </div>
+
+      {filtered.length === 0
+        ? <EmptyState filter={filter} onAdd={() => setModal("add")} />
+        : <div className="cards-grid">
+            {filtered.map(f => (
+              <FeatureCard key={f.id} feature={f}
+                onEdit={feat => setModal(feat)}
+                onDelete={deleteFeature}
+                onStatusChange={updateStatus} />
+            ))}
+          </div>
+      }
+
+      {modal !== null && (
+        <FeatureModal
+          feature={modal === "add" ? null : modal}
+          onSave={handleSave}
+          onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
