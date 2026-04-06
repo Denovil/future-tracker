@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from "react";
-
 import AdminFeatureModal from "./AdminFeatureModal";
 import axios from "axios";
+import { API_ORIGIN, API_URL } from "../utils/api";
 
-
-const API_URL = "http://localhost:5000/api/features";
-const AUTH_API_URL = "http://localhost:5000/api/auth/login";
+const AUTH_API_URL = `${API_ORIGIN}/api/auth/login`;
+const MOCK_TITLES = new Set([
+  "Dark mode support",
+  "Export to CSV",
+  "Email notifications",
+  "Mobile app support",
+  "Advanced search filters",
+]);
 const priorities = ["Low", "Medium", "High"];
 const statuses = ["Open", "In Progress", "Completed"];
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ onFeaturesChanged }) {
   const [features, setFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,6 +23,9 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
+  const [newFeature, setNewFeature] = useState({ title: "", description: "", priority: "Low", status: "Open", videoUrl: "" });
+  const [lastAddedId, setLastAddedId] = useState(null);
+  const [showPriorityDialog, setShowPriorityDialog] = useState(false);
   // Admin login state
   const [user, setUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -31,7 +39,7 @@ export default function AdminDashboard() {
     setError(null);
     setErrorDetails(null);
     axios.get(API_URL)
-      .then(res => setFeatures(res.data))
+      .then(res => setFeatures(res.data.filter((feature) => !MOCK_TITLES.has(feature.title))))
       .catch(err => {
         setError("Failed to fetch features");
         setErrorDetails(err?.message || JSON.stringify(err));
@@ -84,6 +92,9 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "multipart/form-data" }
       });
       setFeatures(f => [...f, res.data]);
+      if (onFeaturesChanged) {
+        await onFeaturesChanged();
+      }
       setNewFeature({ title: "", description: "", priority: "Low", status: "Open", videoUrl: "" });
       setImageFile(null);
       setAdding(false);
@@ -115,6 +126,9 @@ export default function AdminDashboard() {
     try {
       await axios.delete(`${API_URL}/${id}`);
       setFeatures(f => f.filter(feat => feat.id !== id));
+      if (onFeaturesChanged) {
+        await onFeaturesChanged();
+      }
       setDeleteConfirm(null);
     } catch (err) {
       setError('Failed to delete feature');
@@ -127,55 +141,198 @@ export default function AdminDashboard() {
   // Render
   if (!user) {
     return (
-      <div style={{ maxWidth: 400, margin: "80px auto", background: "#fff", borderRadius: 12, padding: 32, color: '#222', boxShadow: '0 2px 16px #0001' }}>
-        <h2 style={{ fontSize: 28, marginBottom: 24, fontWeight: 800 }}>Admin Login</h2>
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={loginForm.username}
-            onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}
-            style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-            autoFocus
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={loginForm.password}
-            onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-            style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-          />
-          {loginError && <div style={{ color: 'red', fontSize: 15 }}>{loginError}</div>}
-          <button type="submit" style={{ background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 0', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>Login</button>
-        </form>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 'max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-top))',
+        background: 'linear-gradient(135deg, #f5f8fb 0%, #e8f4f8 100%)',
+      }}>
+        <div style={{
+          maxWidth: 420,
+          width: '100%',
+          background: '#fff',
+          borderRadius: 16,
+          padding: 32,
+          color: '#222',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(79, 70, 229, 0.1)'
+        }}>
+          <h2 style={{ fontSize: 28, marginBottom: 24, fontWeight: 800, color: '#1a1d2e' }}>Admin Login</h2>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <input
+              type="text"
+              placeholder="Username"
+              value={loginForm.username}
+              onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 8,
+                border: '1.5px solid #d4dce8',
+                fontSize: 14,
+                fontFamily: '"DM Sans", sans-serif',
+                transition: 'all 0.2s',
+                background: '#f5f8fb'
+              }}
+              autoFocus
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={loginForm.password}
+              onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 8,
+                border: '1.5px solid #d4dce8',
+                fontSize: 14,
+                fontFamily: '"DM Sans", sans-serif',
+                transition: 'all 0.2s',
+                background: '#f5f8fb'
+              }}
+            />
+            {loginError && <div style={{ color: '#e8544a', fontSize: 13, fontWeight: 600 }}>⚠️ {loginError}</div>}
+            <button type="submit" style={{
+              background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '12px 0',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              marginTop: 8,
+              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
+            }} onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(79, 70, 229, 0.4)'} onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.3)'}>Login</button>
+          </form>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "40px auto", background: "#fff", borderRadius: 12, padding: 32, color: '#222', boxShadow: '0 2px 16px #0001' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: 32, marginBottom: 16, fontWeight: 800, letterSpacing: 1 }}>Admin Feature Management</h2>
-        <button onClick={handleLogout} style={{ background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>Logout</button>
-      </div>
-      <div style={{ marginBottom: 32, color: '#666', fontSize: 18 }}>
-        <span>Manage, prioritize, and update all features in one place.</span>
-      </div>
-      {loading && <p>Loading...</p>}
-      {error && (
-        <div style={{ color: 'red', marginBottom: 12 }}>
-          <p>{error}</p>
-          {errorDetails && (
-            <details style={{ fontSize: 13, marginTop: 4 }}>
-              <summary>Details</summary>
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{errorDetails}</pre>
-            </details>
-          )}
-          <button onClick={fetchFeatures} style={{ marginTop: 8 }}>Retry</button>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #e8f4f8 0%, #d4e9f7 100%)',
+      backgroundAttachment: 'fixed',
+      paddingTop: 'max(20px, env(safe-area-inset-top))',
+      paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
+      paddingLeft: 'max(20px, env(safe-area-inset-left))',
+      paddingRight: 'max(20px, env(safe-area-inset-right))',
+    }}>
+      <div style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: 20,
+        padding: 'max(32px, clamp(20px, 5vw, 48px))',
+        color: '#1a1d2e',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+        border: '1px solid rgba(79, 70, 229, 0.08)',
+        backdropFilter: 'blur(8px)'
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 32,
+          gap: 16,
+          flexWrap: 'wrap'
+        }}>
+          <div>
+            <h2 style={{
+              fontSize: 'clamp(24px, 5vw, 32px)',
+              marginBottom: 8,
+              fontWeight: 800,
+              letterSpacing: -0.5,
+              background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              display: 'inline-block'
+            }}>Admin Feature Management</h2>
+            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 0 }}>Manage, prioritize, and update all features in one place.</p>
+          </div>
+          <button onClick={handleLogout} style={{
+            background: 'linear-gradient(135deg, #e8544a 0%, #dc3545 100%)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '10px 20px',
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 12px rgba(232, 84, 74, 0.3)',
+            transition: 'all 0.2s'
+          }} onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>Logout</button>
         </div>
-      )}
-      <h3 style={{ fontSize: 22, margin: '32px 0 12px 0', fontWeight: 700, color: '#333' }}>Add New Feature</h3>
-      <button onClick={() => setAdding(true)} style={{ marginBottom: 24, background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 1px 4px #0001' }}>+ Add Feature</button>
+
+        {/* Error Section */}
+        {loading && (
+          <div style={{
+            padding: '12px 16px',
+            background: 'rgba(79, 70, 229, 0.08)',
+            borderRadius: 8,
+            marginBottom: 24,
+            color: '#4f46e5',
+            fontWeight: 600
+          }}>⏳ Loading features...</div>
+        )}
+        {error && (
+          <div style={{
+            padding: '14px 16px',
+            background: 'rgba(232, 84, 74, 0.08)',
+            borderRadius: 8,
+            marginBottom: 24,
+            color: '#e8544a',
+            fontWeight: 600,
+            border: '1px solid rgba(232, 84, 74, 0.2)'
+          }}>
+            <p style={{ margin: 0, marginBottom: 8 }}>⚠️ {error}</p>
+            {errorDetails && (
+              <details style={{ fontSize: 12, marginTop: 8 }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Details</summary>
+                <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, marginTop: 8, background: 'rgba(0,0,0,0.05)', padding: 8, borderRadius: 4, overflow: 'auto', maxHeight: 200 }}>{errorDetails}</pre>
+              </details>
+            )}
+            <button onClick={fetchFeatures} style={{
+              marginTop: 12,
+              background: '#e8544a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '6px 12px',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontWeight: 600
+            }}>Retry</button>
+          </div>
+        )}
+
+        {/* Add Feature Section */}
+        <div style={{
+          marginBottom: 32,
+          paddingBottom: 32,
+          borderBottom: '1px solid rgba(79, 70, 229, 0.1)'
+        }}>
+          <h3 style={{ fontSize: 18, margin: '0 0 12px 0', fontWeight: 700, color: '#1a1d2e' }}>Add New Feature</h3>
+          <button onClick={() => setAdding(true)} style={{
+            background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '10px 24px',
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+            transition: 'all 0.2s'
+          }} onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>+ Add Feature</button>
+        </div>
       {adding && (
         <AdminFeatureModal
           feature={null}
@@ -194,13 +351,40 @@ export default function AdminDashboard() {
               if (form.video) {
                 formData.append("video", form.video);
               }
+              if (form.imageClip) {
+                formData.append("imageClip", form.imageClip);
+              }
+              if (form.imageClipTitle) {
+                formData.append("imageClipTitle", form.imageClipTitle);
+              }
+              if (form.imageClipDescription) {
+                formData.append("imageClipDescription", form.imageClipDescription);
+              }
               if (form.image) {
                 formData.append("image", form.image);
               }
+              if (form.imageUrl) {
+                formData.append("imageUrl", form.imageUrl);
+              }
+              if (form.imageTitle) {
+                formData.append("imageTitle", form.imageTitle);
+              }
+              if (form.imageDescription) {
+                formData.append("imageDescription", form.imageDescription);
+              }
+              // Always send videos, imageClips and links arrays (even if empty)
+              formData.append("videos", JSON.stringify(form.videos || []));
+              formData.append("links", JSON.stringify(form.links || []));
+              formData.append("videoFiles", JSON.stringify(form.videoFiles || []));
+              formData.append("imageClips", JSON.stringify(form.imageClips || []));
+              
               const res = await axios.post(API_URL, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
               });
               setFeatures(f => [...f, res.data]);
+              if (onFeaturesChanged) {
+                await onFeaturesChanged();
+              }
               setImageFile(null);
             } catch (err) {
               setError("Failed to add feature");
@@ -231,13 +415,40 @@ export default function AdminDashboard() {
               if (form.video) {
                 formData.append("video", form.video);
               }
+              if (form.imageClip) {
+                formData.append("imageClip", form.imageClip);
+              }
+              if (form.imageClipTitle) {
+                formData.append("imageClipTitle", form.imageClipTitle);
+              }
+              if (form.imageClipDescription) {
+                formData.append("imageClipDescription", form.imageClipDescription);
+              }
               if (form.image) {
                 formData.append("image", form.image);
               }
+              if (form.imageUrl) {
+                formData.append("imageUrl", form.imageUrl);
+              }
+              if (form.imageTitle) {
+                formData.append("imageTitle", form.imageTitle);
+              }
+              if (form.imageDescription) {
+                formData.append("imageDescription", form.imageDescription);
+              }
+              // Always send videos, imageClips and links arrays (even if empty)
+              formData.append("videos", JSON.stringify(form.videos || []));
+              formData.append("links", JSON.stringify(form.links || []));
+              formData.append("videoFiles", JSON.stringify(form.videoFiles || []));
+              formData.append("imageClips", JSON.stringify(form.imageClips || []));
+              
               await axios.put(`${API_URL}/${editing.id}`, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
               });
               fetchFeatures();
+              if (onFeaturesChanged) {
+                await onFeaturesChanged();
+              }
             } catch (err) {
               setError("Failed to update feature");
               setErrorDetails(err?.message || JSON.stringify(err));
@@ -249,55 +460,193 @@ export default function AdminDashboard() {
           onClose={handleEditClose}
         />
       )}
-      <h3 style={{ fontSize: 22, margin: '32px 0 12px 0', fontWeight: 700, color: '#333' }}>All Features</h3>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "transparent", fontSize: 16 }}>
-        <thead>
-          <tr style={{ background: "#f0f0f0" }}>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>ID</th>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>Title</th>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>Priority</th>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>Status</th>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>Created</th>
-            <th style={{ textAlign: "left", padding: "10px 8px" }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {features.map(f => (
-            <tr key={f.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "10px 8px" }}>{f.id}</td>
-              <td style={{ padding: "10px 8px" }}>{f.title}</td>
-              <td style={{ padding: "10px 8px" }}>{f.priority}</td>
-              <td style={{ padding: "10px 8px" }}>{f.status}</td>
-              <td style={{ padding: "10px 8px" }}>{new Date(f.createdAt).toLocaleString()}</td>
-              <td style={{ padding: "10px 8px" }}>
-                <button onClick={() => handleEdit(f)} style={{ marginRight: 6, background: '#e0e7ff', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
-                  <span style={{ marginRight: 4 }}>✏️</span>Edit
-                </button>
-                <button onClick={() => setDeleteConfirm(f.id)} style={{ color: '#fff', background: '#e74c3c', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
-                  <span style={{ marginRight: 4 }}>🗑️</span>Delete
-                </button>
-                {/* Delete confirmation dialog */}
-                {deleteConfirm === f.id && (
-                  <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-                    <div style={{ background: '#fff', padding: 32, borderRadius: 12, minWidth: 320, boxShadow: '0 2px 16px #0002', textAlign: 'center' }}>
-                      <h4 style={{ marginBottom: 16 }}>Are you sure you want to delete this feature?</h4>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
-                        <button onClick={() => { handleDelete(f.id); setDeleteConfirm(null); }} style={{ background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 700, cursor: 'pointer' }}>Yes, Delete</button>
-                        <button onClick={() => setDeleteConfirm(null)} style={{ background: '#eee', color: '#222', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                      </div>
-                    </div>
-                  </div>
+      
+        {/* All Features Section */}
+        <div style={{ marginTop: 32 }}>
+          <h3 style={{ fontSize: 18, margin: '0 0 16px 0', fontWeight: 700, color: '#1a1d2e' }}>All Features ({features.length})</h3>
+          <div style={{
+            overflowX: 'auto',
+            borderRadius: 12,
+            border: '1px solid rgba(79, 70, 229, 0.1)',
+            background: 'rgba(79, 70, 229, 0.02)'
+          }}>
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              background: 'transparent',
+              fontSize: 14
+            }}>
+              <thead>
+                <tr style={{
+                  background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(79, 70, 229, 0.05) 100%)',
+                  borderBottom: '2px solid rgba(79, 70, 229, 0.15)'
+                }}>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>ID</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Title</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Priority</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Status</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Created</th>
+                  <th style={{ textAlign: 'center', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {features.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{
+                      padding: '32px 14px',
+                      textAlign: 'center',
+                      color: '#9ca3af',
+                      fontWeight: 500
+                    }}>No features yet. Create one to get started!</td>
+                  </tr>
+                ) : (
+                  features.map((f, idx) => (
+                    <tr key={f.id} style={{
+                      borderBottom: '1px solid rgba(79, 70, 229, 0.08)',
+                      background: idx % 2 === 0 ? 'transparent' : 'rgba(79, 70, 229, 0.02)',
+                      transition: 'background 0.2s'
+                    }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(79, 70, 229, 0.06)'} onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(79, 70, 229, 0.02)'}>
+                      <td style={{ padding: '14px 14px', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>#{f.id}</td>
+                      <td style={{ padding: '14px 14px', fontWeight: 600, color: '#1a1d2e' }}>{f.title}</td>
+                      <td style={{
+                        padding: '14px 14px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          background: f.priority === 'High' ? 'rgba(232, 84, 74, 0.15)' : f.priority === 'Medium' ? 'rgba(232, 158, 55, 0.15)' : 'rgba(76, 175, 130, 0.15)',
+                          color: f.priority === 'High' ? '#e8544a' : f.priority === 'Medium' ? '#e89e37' : '#4caf82'
+                        }}>{f.priority}</span>
+                      </td>
+                      <td style={{
+                        padding: '14px 14px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textTransform: 'capitalize'
+                      }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          background: f.status === 'Open' ? 'rgba(91, 156, 246, 0.15)' : f.status === 'In Progress' ? 'rgba(232, 158, 55, 0.15)' : 'rgba(76, 175, 130, 0.15)',
+                          color: f.status === 'Open' ? '#5b9cf6' : f.status === 'In Progress' ? '#e89e37' : '#4caf82'
+                        }}>{f.status}</span>
+                      </td>
+                      <td style={{ padding: '14px 14px', fontSize: 12, color: '#6b7280' }}>{new Date(f.createdAt).toLocaleDateString()}</td>
+                      <td style={{ padding: '14px 14px', textAlign: 'center' }}>
+                        <button onClick={() => handleEdit(f)} style={{
+                          background: 'rgba(79, 70, 229, 0.1)',
+                          border: '1px solid rgba(79, 70, 229, 0.2)',
+                          color: '#4f46e5',
+                          borderRadius: 6,
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          transition: 'all 0.2s',
+                          marginRight: 6
+                        }} onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(79, 70, 229, 0.15)';
+                          e.currentTarget.style.borderColor = 'rgba(79, 70, 229, 0.4)';
+                        }} onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(79, 70, 229, 0.1)';
+                          e.currentTarget.style.borderColor = 'rgba(79, 70, 229, 0.2)';
+                        }}>✏️ Edit</button>
+                        <button onClick={() => setDeleteConfirm(f.id)} style={{
+                          background: 'rgba(232, 84, 74, 0.1)',
+                          border: '1px solid rgba(232, 84, 74, 0.2)',
+                          color: '#e8544a',
+                          borderRadius: 6,
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          transition: 'all 0.2s'
+                        }} onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(232, 84, 74, 0.15)';
+                          e.currentTarget.style.borderColor = 'rgba(232, 84, 74, 0.4)';
+                        }} onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(232, 84, 74, 0.1)';
+                          e.currentTarget.style.borderColor = 'rgba(232, 84, 74, 0.2)';
+                        }}>🗑️ Delete</button>
+                        {deleteConfirm === f.id && (
+                          <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            background: 'rgba(0,0,0,0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 2000,
+                            backdropFilter: 'blur(4px)',
+                            paddingTop: 'env(safe-area-inset-top)',
+                            paddingBottom: 'env(safe-area-inset-bottom)',
+                            paddingLeft: 'env(safe-area-inset-left)',
+                            paddingRight: 'env(safe-area-inset-right)'
+                          }}>
+                            <div style={{
+                              background: '#fff',
+                              padding: 'max(24px, clamp(20px, 5vw, 32px))',
+                              borderRadius: 16,
+                              minWidth: 320,
+                              maxWidth: 420,
+                              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                              border: '1px solid rgba(79, 70, 229, 0.1)',
+                              textAlign: 'center'
+                            }}>
+                              <h4 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: '#1a1d2e' }}>Delete Feature?</h4>
+                              <p style={{ margin: '0 0 20px 0', fontSize: 14, color: '#6b7280' }}>Are you sure you want to delete <strong>{f.title}</strong>? This action cannot be undone.</p>
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                                <button onClick={() => { handleDelete(f.id); setDeleteConfirm(null); }} style={{
+                                  background: 'linear-gradient(135deg, #e8544a 0%, #dc3545 100%)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: 8,
+                                  padding: '10px 20px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  fontSize: 14,
+                                  boxShadow: '0 4px 12px rgba(232, 84, 74, 0.25)',
+                                  transition: 'all 0.2s'
+                                }} onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>Yes, Delete</button>
+                                <button onClick={() => setDeleteConfirm(null)} style={{
+                                  background: '#f3f4f6',
+                                  color: '#1a1d2e',
+                                  border: '1.5px solid #e5e7eb',
+                                  borderRadius: 8,
+                                  padding: '10px 20px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  fontSize: 14,
+                                  transition: 'all 0.2s'
+                                }} onMouseEnter={(e) => e.target.style.background = '#e5e7eb'} onMouseLeave={(e) => e.target.style.background = '#f3f4f6'}>Cancel</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </td>
-              <td style={{ padding: "10px 8px" }}>
-                {f.image && (
-                  <img src={`http://localhost:5000/api/features/images/${f.image}`} alt="feature" style={{ maxWidth: 80, maxHeight: 80, borderRadius: 6 }} />
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

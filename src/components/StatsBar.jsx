@@ -9,9 +9,9 @@ export default function StatsBar({ features }) {
   const highPriority = features.filter((f) => f.priority === "High").length;
 
   const stats = [
-    { label: "Total", value: total, accent: false },
-    { label: "Open", value: open, accent: "open" },
-    { label: "In Progress", value: inProgress, accent: "progress" },
+    { label: "All Requests", value: total, accent: false },
+    { label: "Not Started", value: open, accent: "open" },
+    { label: "In Development", value: inProgress, accent: "progress" },
     { label: "Completed", value: completed, accent: "done" },
     { label: "High Priority", value: highPriority, accent: "high" },
   ];

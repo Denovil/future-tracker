@@ -18,6 +18,13 @@ async function createFeature(data) {
     status: data.status,
     createdAt: new Date().toISOString(),
     image: data.image || null,
+    imageUrl: data.imageUrl || null,
+    imageTitle: data.imageTitle || "",
+    imageDescription: data.imageDescription || "",
+    videos: data.videos || [],
+    links: data.links || [],
+    imageClips: data.imageClips || [],
+    videoFiles: data.videoFiles || [],
     videoUrl: data.videoUrl || null,
     videoFile: data.videoFile || null
   };

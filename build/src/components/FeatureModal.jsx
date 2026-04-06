@@ -1,4 +1,3 @@
-// This file has been moved to src/.
 import React, { useState, useEffect } from "react";
 import { PRIORITY_META, STATUS_META } from "../utils/constants";
 

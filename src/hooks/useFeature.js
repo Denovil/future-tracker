@@ -1,8 +1,24 @@
-// Read-only hook — data comes from the backend API (see App.jsx).
-// Add / update / delete are handled by the admin interface only.
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { API_URL } from '../utils/api';
 
 export function useFeatures() {
-  // No local state or mutations needed in the user-facing view.
-  // App.jsx fetches directly via axios and manages its own state.
-  return {};
+  const [features, setFeatures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchFeatures = () => {
+      setLoading(true);
+      setError(null);
+      axios
+        .get(API_URL)
+        .then((res) => setFeatures(res.data))
+        .catch((err) => setError('Failed to load features'))
+        .finally(() => setLoading(false));
+    };
+    fetchFeatures();
+  }, []);
+
+  return { features, loading, error };
 }

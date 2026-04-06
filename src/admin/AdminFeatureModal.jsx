@@ -4,8 +4,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { PRIORITIES, STATUSES } from "../utils/costants";
+import { toFeatureImageUrl } from "../utils/api";
 
-const EMPTY = { title: "", description: "", priority: "Medium", status: "Open" };
+const EMPTY = { title: "", description: "", priority: "Medium", status: "Open", imageTitle: "", imageDescription: "" };
 
 /* ── Google Fonts injection (Nunito + DM Sans) ─────────────────────────────── */
 const fontLink = document.createElement("link");
@@ -169,7 +170,9 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
   const [form, setForm]                 = useState(feature ? { ...feature } : { ...EMPTY });
   const [errors, setErrors]             = useState({});
   const [imageFile, setImageFile]       = useState(null);
-  const [imagePreview, setImagePreview] = useState(feature?.imageUrl || null);
+  const [imagePreview, setImagePreview] = useState(
+    feature?.image ? toFeatureImageUrl(feature.image) : (feature?.imageUrl || null)
+  );
   const [dragging, setDragging]         = useState(false);
   const [tab, setTab]                   = useState("upload");
   const [urlInput, setUrlInput]         = useState("");
@@ -178,6 +181,19 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
   const [videoUrlError, setVideoUrlError] = useState("");
   const [videoFile, setVideoFile]       = useState(null);
   const [videoDragging, setVideoDragging] = useState(false);
+  const [imageClipFile, setImageClipFile] = useState(null);
+  const [imageClipDragging, setImageClipDragging] = useState(false);
+  const [videos, setVideos]             = useState(feature?.videos || []);
+  const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [newVideoUrl, setNewVideoUrl]   = useState("");
+  const [newVideoDescription, setNewVideoDescription] = useState("");
+  const [videoFiles, setVideoFiles]     = useState(feature?.videoFiles || []);
+  const [imageClips, setImageClips]     = useState(feature?.imageClips || []);
+  const [newImageClipDescription, setNewImageClipDescription] = useState("");
+  const [links, setLinks]               = useState(feature?.links || []);
+  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [newLinkUrl, setNewLinkUrl]     = useState("");
+  const [newLinkDescription, setNewLinkDescription] = useState("");
 
   const titleRef       = useRef(null);
   const fileInputRef   = useRef(null);
@@ -238,7 +254,21 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    onSave({ ...form, image: imageFile, imageUrl: imageFile ? undefined : (imagePreview || undefined), videoUrl, video: videoFile });
+    onSave({
+      ...form,
+      image: imageFile,
+      imageUrl: imageFile ? undefined : (imagePreview || undefined),
+      imageTitle: form.imageTitle?.trim() || "",
+      imageDescription: form.imageDescription?.trim() || "",
+      videoUrl,
+      video: videoFile,
+      imageClip: imageClipFile,
+      imageClipDescription: newImageClipDescription.trim(),
+      videos,
+      videoFiles,
+      imageClips,
+      links
+    });
     onClose();
   }
 
@@ -282,6 +312,50 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
   function removeVideo() {
     setVideoFile(null);
     if (videoInputRef.current) videoInputRef.current.value = "";
+  }
+
+  // Add video to videos array
+  function addVideo() {
+    if (!newVideoTitle.trim() || !newVideoUrl.trim()) return;
+    const video = {
+      id: "v" + Date.now(),
+      title: newVideoTitle,
+      url: newVideoUrl,
+      description: newVideoDescription,
+      views: 0,
+      viewed: false,
+    };
+    setVideos([...videos, video]);
+    setNewVideoTitle("");
+    setNewVideoUrl("");
+    setNewVideoDescription("");
+  }
+
+  // Remove video from videos array
+  function removeVideoFromList(videoId) {
+    setVideos(videos.filter(v => v.id !== videoId));
+  }
+
+  // Add link to links array
+  function addLink() {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
+    const link = {
+      id: "l" + Date.now(),
+      title: newLinkTitle,
+      url: newLinkUrl,
+      description: newLinkDescription,
+      views: 0,
+      viewed: false,
+    };
+    setLinks([...links, link]);
+    setNewLinkTitle("");
+    setNewLinkUrl("");
+    setNewLinkDescription("");
+  }
+
+  // Remove link from links array
+  function removeLinkFromList(linkId) {
+    setLinks(links.filter(l => l.id !== linkId));
   }
 
   /* ── render ─────────────────────────────────────────────────────────────── */
@@ -677,6 +751,55 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                   </div>
                 </div>
               )}
+
+              {imagePreview && (
+                <div style={{ marginTop: 14 }}>
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    fontSize: 10.5, fontWeight: 800, color: T.primary,
+                    letterSpacing: "0.07em", textTransform: "uppercase",
+                    fontFamily: T.font,
+                    marginBottom: 12,
+                  }}>
+                    <Ic.Image /> Image Details
+                    <span style={{
+                      fontWeight: 500, color: T.textHint,
+                      textTransform: "none", fontSize: 11, letterSpacing: 0,
+                    }}>
+                      â€” optional
+                    </span>
+                  </span>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <input
+                      name="imageTitle"
+                      type="text"
+                      value={form.imageTitle || ""}
+                      onChange={handleChange}
+                      placeholder="Image title"
+                      className="amf-input"
+                      style={{ ...baseInput, flex: 1, fontSize: 13 }}
+                    />
+                  </div>
+
+                  <textarea
+                    name="imageDescription"
+                    value={form.imageDescription || ""}
+                    onChange={handleChange}
+                    placeholder="Image description (optional)"
+                    rows={3}
+                    className="amf-input"
+                    style={{
+                      ...baseInput,
+                      width: "100%",
+                      fontSize: 13,
+                      minHeight: 60,
+                      resize: "none",
+                      marginBottom: 12,
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
           </div>
@@ -871,6 +994,223 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
             )}
           </div>
 
+
+
+          {/* ── Videos Section ── */}
+          <div style={{ padding: "0 24px", marginBottom: 18 }}>
+            <span style={{
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 10.5, fontWeight: 800, color: T.primary,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+              fontFamily: T.font,
+              marginBottom: 12,
+            }}>
+              📹 Videos
+              <span style={{
+                fontWeight: 500, color: T.textHint,
+                textTransform: "none", fontSize: 11, letterSpacing: 0,
+              }}>
+                — optional
+              </span>
+            </span>
+
+            {/* Add Video Input */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Video title"
+                value={newVideoTitle}
+                onChange={(e) => setNewVideoTitle(e.target.value)}
+                className="amf-input"
+                style={{ ...baseInput, flex: 1, fontSize: 13 }}
+              />
+              <input
+                type="url"
+                placeholder="Video URL"
+                value={newVideoUrl}
+                onChange={(e) => setNewVideoUrl(e.target.value)}
+                className="amf-url-input"
+                style={{ ...baseInput, flex: 1, fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={addVideo}
+                className="amf-primary amf-ripple"
+                style={{
+                  padding: "0 16px", borderRadius: T.radiusSm,
+                  border: "none", background: T.primary,
+                  color: "#fff", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.font,
+                  boxShadow: "0 2px 8px rgba(92,107,192,.3)",
+                  transition: "background .15s",
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Video Description Input */}
+            <textarea
+              placeholder="Video description (optional)"
+              value={newVideoDescription}
+              onChange={(e) => setNewVideoDescription(e.target.value)}
+              className="amf-input"
+              style={{
+                ...baseInput, width: "100%", fontSize: 13,
+                marginBottom: 12, minHeight: "60px",
+                fontFamily: T.fontBody, resize: "none"
+              }}
+            />
+
+            {/* Videos List */}
+            {videos.length > 0 && (
+              <div style={{
+                background: T.surface,
+                border: `1.5px solid ${T.border}`,
+                borderRadius: T.radiusSm,
+                padding: 10,
+              }}>
+                {videos.map((v) => (
+                  <div key={v.id} style={{
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "start", padding: "8px 10px",
+                    borderBottom: `1px solid ${T.border}`,
+                    fontSize: 12,
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: T.textPrimary }}>{v.title}</div>
+                      <div style={{ color: T.textSecondary, fontSize: 11, marginBottom: 4 }}>{v.url}</div>
+                      {v.description && (
+                        <div style={{ color: T.textSecondary, fontSize: 11, fontStyle: "italic" }}>{v.description}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeVideoFromList(v.id)}
+                      className="amf-remove"
+                      style={{
+                        background: "#FFF0F0", color: T.danger,
+                        border: "none", borderRadius: 6,
+                        padding: "4px 8px", cursor: "pointer",
+                        fontSize: 11, fontWeight: 600,
+                        fontFamily: T.font,
+                      }}
+                    >
+                      <Ic.Trash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Links Section ── */}
+          <div style={{ padding: "0 24px", marginBottom: 18 }}>
+            <span style={{
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 10.5, fontWeight: 800, color: T.primary,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+              fontFamily: T.font,
+              marginBottom: 12,
+            }}>
+              <Ic.Link /> Links
+              <span style={{
+                fontWeight: 500, color: T.textHint,
+                textTransform: "none", fontSize: 11, letterSpacing: 0,
+              }}>
+                — optional
+              </span>
+            </span>
+
+            {/* Add Link Input */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Link title"
+                value={newLinkTitle}
+                onChange={(e) => setNewLinkTitle(e.target.value)}
+                className="amf-input"
+                style={{ ...baseInput, flex: 1, fontSize: 13 }}
+              />
+              <input
+                type="url"
+                placeholder="Link URL"
+                value={newLinkUrl}
+                onChange={(e) => setNewLinkUrl(e.target.value)}
+                className="amf-url-input"
+                style={{ ...baseInput, flex: 1, fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={addLink}
+                className="amf-primary amf-ripple"
+                style={{
+                  padding: "0 16px", borderRadius: T.radiusSm,
+                  border: "none", background: T.primary,
+                  color: "#fff", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.font,
+                  boxShadow: "0 2px 8px rgba(92,107,192,.3)",
+                  transition: "background .15s",
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Link Description Input */}
+            <textarea
+              placeholder="Link description (optional)"
+              value={newLinkDescription}
+              onChange={(e) => setNewLinkDescription(e.target.value)}
+              className="amf-input"
+              style={{
+                ...baseInput, width: "100%", fontSize: 13,
+                marginBottom: 12, minHeight: "60px",
+                fontFamily: T.fontBody, resize: "none"
+              }}
+            />
+
+            {/* Links List */}
+            {links.length > 0 && (
+              <div style={{
+                background: T.surface,
+                border: `1.5px solid ${T.border}`,
+                borderRadius: T.radiusSm,
+                padding: 10,
+              }}>
+                {links.map((l) => (
+                  <div key={l.id} style={{
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "start", padding: "8px 10px",
+                    borderBottom: `1px solid ${T.border}`,
+                    fontSize: 12,
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: T.textPrimary }}>{l.title}</div>
+                      <div style={{ color: T.textSecondary, fontSize: 11, marginBottom: 4 }}>{l.url}</div>
+                      {l.description && (
+                        <div style={{ color: T.textSecondary, fontSize: 11, fontStyle: "italic" }}>{l.description}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeLinkFromList(l.id)}
+                      className="amf-remove"
+                      style={{
+                        background: "#FFF0F0", color: T.danger,
+                        border: "none", borderRadius: 6,
+                        padding: "4px 8px", cursor: "pointer",
+                        fontSize: 11, fontWeight: 600,
+                        fontFamily: T.font,
+                      }}
+                    >
+                      <Ic.Trash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div style={{
             display: "flex", justifyContent: "flex-end", gap: 10,

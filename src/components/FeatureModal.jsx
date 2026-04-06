@@ -1,245 +1,131 @@
-import React, { useState, useEffect } from "react";
-import { PRIORITY_META, STATUS_META } from "../utils/constants";
+import React, { useEffect } from "react";
+import { STATUS_META } from "../utils/costants";
+import { toFeatureImageUrl } from "../utils/api";
 
 export default function FeatureModal({ feature, onClose }) {
-  const [viewFullImage, setViewFullImage] = useState(false);
-
-  // Close on Escape
+  // Close on Escape key
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === "Escape") {
-        if (viewFullImage) setViewFullImage(false);
-        else onClose();
-      }
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose, viewFullImage]);
+  }, [onClose]);
 
   if (!feature) return null;
 
-  const pm = PRIORITY_META[feature.priority];
-  const sm = STATUS_META[feature.status];
+  const statusInfo = STATUS_META[feature.status] || {};
+  const priorityColors = {
+    High: "#FF6B6B",
+    Medium: "#FFD93D",
+    Low: "#6BCB77",
+  };
 
   return (
-    <>
-      <div
-        className="modal-backdrop"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
-      >
+    <div
+      className="modal-backdrop"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal-enhanced" role="dialog" aria-modal="true">
+        {/* ── Header with gradient ── */}
         <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Feature Details"
+          className="modal-header-enhanced"
+          style={{ background: `linear-gradient(135deg, ${statusInfo.color || "#6366f1"}, ${statusInfo.color || "#6366f1"}cc)` }}
         >
-          {/* ── Header ── */}
-          <div className="modal-header">
-            <h2 className="modal-title">Request Details</h2>
-            <button className="btn-icon" onClick={onClose} aria-label="Close">✕</button>
+          <div style={{ flex: 1 }}>
+            <h1 className="modal-title">{feature.title}</h1>
+            <p className="modal-subtitle">{feature.description?.substring(0, 100)}...</p>
+          </div>
+          <button className="btn-close-modal" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {/* ── Content ── */}
+        <div className="modal-content-enhanced">
+          {/* Badges Row */}
+          <div className="badges-row">
+            <span className="badge badge-status" style={{ backgroundColor: statusInfo.color }}>
+              {statusInfo.icon} {feature.status}
+            </span>
+            <span className="badge badge-priority" style={{ backgroundColor: priorityColors[feature.priority] }}>
+              ◆ {feature.priority} Priority
+            </span>
+            {feature.submittedDate && (
+              <span className="badge badge-date">📅 {feature.submittedDate}</span>
+            )}
           </div>
 
-          <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Description Section */}
+          <div className="section">
+            <h3 className="section-title">Description</h3>
+            <p className="section-content">{feature.description}</p>
+          </div>
 
-            {/* ── Title ── */}
-            <div className="field">
-              <label>Title</label>
-              <div style={{
-                padding: "10px 14px",
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                color: "var(--text)",
-                fontSize: 14,
-                fontFamily: "var(--font-mono)",
-              }}>
-                {feature.title}
+          {/* Meta Information Grid */}
+          <div className="meta-grid">
+            <div className="meta-item">
+              <label>Status</label>
+              <div style={{ padding: "8px 14px", backgroundColor: statusInfo.color + "20", borderRadius: "4px", fontWeight: 600, color: statusInfo.color }}>
+                {statusInfo.icon} {feature.status}
               </div>
             </div>
-
-            {/* ── Description ── */}
-            <div className="field">
-              <label>Description</label>
-              <div style={{
-                padding: "10px 14px",
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                color: "var(--text-2)",
-                fontSize: 13,
-                fontFamily: "var(--font-mono)",
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-                minHeight: 80,
-              }}>
-                {feature.description}
+            <div className="meta-item">
+              <label>Priority</label>
+              <div style={{ padding: "8px 14px", backgroundColor: priorityColors[feature.priority] + "20", borderRadius: "4px", fontWeight: 600, color: priorityColors[feature.priority] }}>
+                ◆ {feature.priority}
               </div>
             </div>
-
-            {/* ── Priority & Status ── */}
-            <div className="field-row">
-              <div className="field">
-                <label>Priority</label>
-                <div style={{
-                  padding: "8px 14px",
-                  background: "var(--surface-2)",
-                  border: `1px solid ${pm?.color || "var(--border)"}`,
-                  borderRadius: "var(--radius)",
-                  color: pm?.color || "var(--text)",
-                  fontSize: 13,
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 600,
-                }}>
-                  {feature.priority}
-                </div>
-              </div>
-
-              <div className="field">
-                <label>Status</label>
-                <div style={{
-                  padding: "8px 14px",
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius)",
-                  color: "var(--text)",
-                  fontSize: 13,
-                  fontFamily: "var(--font-mono)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}>
-                  <span>{sm?.icon}</span>
-                  {feature.status}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Image ── */}
-            {feature.imageUrl && (
-              <div className="field">
-                <label>Image</label>
-                <div style={{ position: "relative" }}>
-                  <img
-                    src={feature.imageUrl}
-                    alt="Feature image"
-                    onClick={() => setViewFullImage(true)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      maxHeight: 260,
-                      objectFit: "cover",
-                      borderRadius: "var(--radius)",
-                      border: "1px solid var(--border)",
-                      cursor: "zoom-in",
-                      transition: "opacity 0.2s",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-                    onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-                    title="Click to view full size"
-                  />
-                  <div style={{
-                    position: "absolute", bottom: 8, right: 10,
-                    fontSize: 11, color: "var(--text-3)",
-                    background: "rgba(0,0,0,0.5)",
-                    padding: "2px 8px", borderRadius: 4,
-                  }}>
-                    🔍 Click to enlarge
-                  </div>
+            {feature.submittedDate && (
+              <div className="meta-item">
+                <label>Submitted Date</label>
+                <div style={{ padding: "8px 14px", backgroundColor: "#f0f0f0", borderRadius: "4px", fontWeight: 600 }}>
+                  📅 {feature.submittedDate}
                 </div>
               </div>
             )}
+          </div>
 
-            {/* ── GPS Location ── */}
-            {feature.coordinates && (
-              <div className="field">
-                <label>GPS Location</label>
-                <div style={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius)",
-                  padding: "12px 14px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                }}>
-                  <span style={{ fontSize: 18 }}>📍</span>
-                  <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.7 }}>
-                    <div><strong>Lat:</strong> {feature.coordinates.latitude.toFixed(6)}</div>
-                    <div><strong>Lng:</strong> {feature.coordinates.longitude.toFixed(6)}</div>
-                    {feature.coordinates.accuracy && (
-                      <div style={{ color: "var(--text-3)" }}>
-                        Accuracy: ±{feature.coordinates.accuracy.toFixed(0)}m
-                      </div>
+          {/* Image if exists */}
+          {(feature.image || feature.imageUrl) && (
+            <div className="section">
+              <h3 className="section-title">Screenshot</h3>
+              <div className="image-display">
+                <img
+                  src={feature.image ? toFeatureImageUrl(feature.image) : feature.imageUrl}
+                  alt={feature.imageTitle || feature.title}
+                  style={{ maxWidth: "100%", borderRadius: "8px" }}
+                />
+                {(feature.imageTitle || feature.imageDescription) && (
+                  <div style={{ marginTop: "12px" }}>
+                    {feature.imageTitle && (
+                      <p style={{ margin: "0 0 6px 0", fontWeight: 700 }}>{feature.imageTitle}</p>
+                    )}
+                    {feature.imageDescription && (
+                      <p style={{ margin: 0, color: "#666", lineHeight: 1.5 }}>{feature.imageDescription}</p>
                     )}
                   </div>
-                </div>
+                )}
               </div>
-            )}
-
-            {/* ── Submitted date ── */}
-            {feature.createdAt && (
-              <div className="field">
-                <label>Submitted</label>
-                <div style={{
-                  padding: "10px 14px",
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius)",
-                  color: "var(--text-3)",
-                  fontSize: 13,
-                  fontFamily: "var(--font-mono)",
-                }}>
-                  📅 {new Date(feature.createdAt).toLocaleString()}
-                </div>
-              </div>
-            )}
-
-            {/* ── Close ── */}
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={onClose}>Close</button>
             </div>
+          )}
 
-          </div>
+          {/* Location if exists */}
+          {feature.gps && (
+            <div className="section">
+              <h3 className="section-title">Location</h3>
+              <div style={{ padding: "12px", backgroundColor: "#f5f5f5", borderRadius: "6px", fontFamily: "monospace" }}>
+                {feature.gps}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="modal-footer-enhanced">
+          <button onClick={onClose} className="btn-close-details">
+            Close Details
+          </button>
         </div>
       </div>
-
-      {/* ── Full-size image lightbox ── */}
-      {viewFullImage && feature.imageUrl && (
-        <div
-          onClick={() => setViewFullImage(false)}
-          style={{
-            position: "fixed", inset: 0,
-            background: "rgba(0,0,0,0.92)",
-            zIndex: 10000,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20, cursor: "zoom-out",
-            backdropFilter: "blur(6px)",
-          }}
-        >
-          <button
-            onClick={() => setViewFullImage(false)}
-            style={{
-              position: "absolute", top: 20, right: 20,
-              background: "rgba(255,255,255,0.15)", color: "#fff",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "50%", width: 40, height: 40,
-              fontSize: 18, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >✕</button>
-          <img
-            src={feature.imageUrl}
-            alt="Full size"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "90vw", maxHeight: "90vh",
-              objectFit: "contain", borderRadius: 8,
-              boxShadow: "0 8px 48px rgba(0,0,0,0.7)",
-              cursor: "default",
-            }}
-          />
-        </div>
-      )}
-    </>
+    </div>
   );
 }

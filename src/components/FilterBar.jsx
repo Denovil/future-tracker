@@ -3,10 +3,6 @@
 import React from "react";
 import { STATUSES, STATUS_META } from "../utils/costants";
 
-const All = "All";
-import React from "react";
-import { STATUSES, STATUS_META } from "../utils/costants";
-
 const ALL = "All";
 const TABS = [ALL, ...STATUSES];
 

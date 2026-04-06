@@ -4,10 +4,6 @@ A clean, dark-themed full-stack-ready Feature Request Tracker built with React.
 
 ## ✨ Features
 - **View** all feature requests in a responsive card grid
-- **Add** new requests via a modal form with validation
-- **Edit** any request inline via the same modal
-- **Delete** with a double-confirm to prevent accidents
-- **Update status** by clicking the status badge (cycles Open → In Progress → Completed)
 - **Filter** by status (All / Open / In Progress / Completed)
 - **Stats bar** showing totals at a glance
 - **Persistent storage** via localStorage

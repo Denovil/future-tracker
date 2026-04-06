@@ -1,14 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('firebase-admin');
 
-// Initialize Firebase Admin SDK (service account key required)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
+// Try to initialize Firebase Admin SDK (optional - server runs fine without it)
+let admin = null;
+try {
+  admin = require('firebase-admin');
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+    });
+  }
+} catch (err) {
+  console.warn('Firebase Admin SDK not initialized (optional):', err.message);
 }
-
 
 // Simple admin login route
 router.post('/login', (req, res) => {

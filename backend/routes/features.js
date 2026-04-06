@@ -55,15 +55,58 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create feature with image and/or video upload
-router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res, next) => {
+router.post('/', upload.fields([
+  { name: 'image', maxCount: 1 }, 
+  { name: 'imageClip', maxCount: 10 },
+  { name: 'video', maxCount: 10 }  // Allow up to 10 video uploads
+]), async (req, res, next) => {
   try {
     const data = req.body;
+    
+    // Parse videos, videoFiles, imageClips and links from JSON strings if present
+    if (data.videos && typeof data.videos === 'string') {
+      data.videos = JSON.parse(data.videos);
+    }
+    if (data.videoFiles && typeof data.videoFiles === 'string') {
+      data.videoFiles = JSON.parse(data.videoFiles);
+    }
+    if (data.imageClips && typeof data.imageClips === 'string') {
+      data.imageClips = JSON.parse(data.imageClips);
+    }
+    if (data.links && typeof data.links === 'string') {
+      data.links = JSON.parse(data.links);
+    }
+    
     if (req.files) {
       if (req.files.image && req.files.image[0]) {
         data.image = req.files.image[0].filename;
       }
-      if (req.files.video && req.files.video[0]) {
-        data.videoFile = req.files.video[0].filename;
+      // Handle multiple image clip uploads
+      if (req.files.imageClip && req.files.imageClip.length > 0) {
+        const uploadedImageClips = req.files.imageClip.map((file, idx) => ({
+          id: "img-" + Date.now() + "-" + idx,
+          title: idx === 0 && data.imageClipTitle ? data.imageClipTitle : "Image " + (idx + 1),
+          description: idx === 0 && data.imageClipDescription ? data.imageClipDescription : "",
+          fileName: file.filename,
+          filePath: `/api/features/images/${file.filename}`,
+          views: 0,
+          viewed: false,
+          isFile: true
+        }));
+        data.imageClips = uploadedImageClips;
+      }
+      // Handle multiple video uploads
+      if (req.files.video && req.files.video.length > 0) {
+        const uploadedVideos = req.files.video.map((file, idx) => ({
+          id: "v-" + Date.now() + "-" + idx,
+          title: "Video Clip " + (idx + 1),
+          fileName: file.filename,
+          filePath: `/api/features/videos/${file.filename}`,
+          views: 0,
+          viewed: false,
+          isFile: true
+        }));
+        data.videoFiles = uploadedVideos;
       }
     }
     // Validate other fields manually (skip middleware)
@@ -81,15 +124,70 @@ router.use('/images', express.static(path.join(__dirname, '../uploads')));
 router.use('/videos', express.static(path.join(__dirname, '../uploads')));
 
 // Update feature (allow partial update and image/video upload)
-router.put('/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res, next) => {
+router.put('/:id', upload.fields([
+  { name: 'image', maxCount: 1 }, 
+  { name: 'imageClip', maxCount: 10 },
+  { name: 'video', maxCount: 10 }  // Allow up to 10 video uploads
+]), async (req, res, next) => {
   try {
     let data = req.body;
+    
+    // Parse videos, videoFiles, imageClips and links from JSON strings if present
+    if (data.videos && typeof data.videos === 'string') {
+      data.videos = JSON.parse(data.videos);
+    }
+    if (data.videoFiles && typeof data.videoFiles === 'string') {
+      data.videoFiles = JSON.parse(data.videoFiles);
+    }
+    if (data.imageClips && typeof data.imageClips === 'string') {
+      data.imageClips = JSON.parse(data.imageClips);
+    }
+    if (data.links && typeof data.links === 'string') {
+      data.links = JSON.parse(data.links);
+    }
+    
     if (req.files) {
       if (req.files.image && req.files.image[0]) {
         data.image = req.files.image[0].filename;
       }
-      if (req.files.video && req.files.video[0]) {
-        data.videoFile = req.files.video[0].filename;
+      // Handle multiple image clip uploads - append to existing ones
+      if (req.files.imageClip && req.files.imageClip.length > 0) {
+        const newImageClips = req.files.imageClip.map((file, idx) => ({
+          id: "img-" + Date.now() + "-" + idx,
+          title: idx === 0 && data.imageClipTitle ? data.imageClipTitle : "Image " + (idx + 1),
+          description: idx === 0 && data.imageClipDescription ? data.imageClipDescription : "",
+          fileName: file.filename,
+          filePath: `/api/features/images/${file.filename}`,
+          views: 0,
+          viewed: false,
+          isFile: true
+        }));
+        // Get existing feature to preserve existing imageClips
+        const existingFeature = await featureModel.getFeatureById(req.params.id);
+        if (existingFeature && existingFeature.imageClips) {
+          data.imageClips = [...existingFeature.imageClips, ...newImageClips];
+        } else {
+          data.imageClips = newImageClips;
+        }
+      }
+      // Handle multiple video uploads - append to existing ones
+      if (req.files.video && req.files.video.length > 0) {
+        const newVideoFiles = req.files.video.map((file, idx) => ({
+          id: "v-" + Date.now() + "-" + idx,
+          title: "Video Clip " + (idx + 1),
+          fileName: file.filename,
+          filePath: `/api/features/videos/${file.filename}`,
+          views: 0,
+          viewed: false,
+          isFile: true
+        }));
+        // Get existing feature to preserve existing videoFiles
+        const existingFeature = await featureModel.getFeatureById(req.params.id);
+        if (existingFeature && existingFeature.videoFiles) {
+          data.videoFiles = [...existingFeature.videoFiles, ...newVideoFiles];
+        } else {
+          data.videoFiles = newVideoFiles;
+        }
       }
     }
     // Allow partial update: only update provided fields
