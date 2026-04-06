@@ -25,7 +25,7 @@ app.use('/api/auth', authRoutes);
 if (hasFrontendBuild) {
   app.use(express.static(buildPath));
 
-  app.get('*', (req, res, next) => {
+  app.get('/{*path}', (req, res, next) => {
     if (req.path.startsWith('/api/')) {
       return next();
     }
