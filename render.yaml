@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: future-tracker
+    env: node
+    plan: free
+    buildCommand: npm install && npm --prefix backend install && npm run build
+    startCommand: node backend/app.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: CORS_ORIGIN
+        sync: false
+    disk:
+      name: future-tracker-uploads
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 1

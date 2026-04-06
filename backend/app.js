@@ -1,16 +1,38 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const featureRoutes = require('./routes/features');
 const authRoutes = require('./routes/auth');
 
 const app = express();
-app.use(cors());
+const buildPath = path.join(__dirname, '../build');
+const hasFrontendBuild = fs.existsSync(path.join(buildPath, 'index.html'));
+const corsOrigin = process.env.CORS_ORIGIN;
+
+app.use(cors(corsOrigin ? { origin: corsOrigin } : undefined));
 app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
 
 app.use('/api/features', featureRoutes);
 app.use('/api/auth', authRoutes);
+
+if (hasFrontendBuild) {
+  app.use(express.static(buildPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
 
 // Firebase Admin SDK setup for backend login support
 try {
