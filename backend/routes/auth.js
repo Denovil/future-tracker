@@ -16,7 +16,9 @@ try {
 
 // Simple admin login route
 router.post('/login', (req, res) => {
-  const { username, password } = req.body;
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+
   if (username === 'admin' && password === 'admin') {
     return res.json({ success: true });
   }

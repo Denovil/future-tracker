@@ -54,14 +54,27 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     e.preventDefault();
     setLoginError(null);
     try {
-      const res = await axios.post(AUTH_API_URL, loginForm);
+      const res = await axios.post(AUTH_API_URL, {
+        username: loginForm.username.trim(),
+        password: loginForm.password.trim(),
+      });
       if (res.data && res.data.success) {
-        setUser({ username: loginForm.username });
+        setUser({ username: loginForm.username.trim() });
       } else {
         setLoginError("Invalid credentials");
       }
     } catch (err) {
-      setLoginError("Invalid credentials");
+      const status = err?.response?.status;
+      const serverMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message;
+
+      if (status === 401) {
+        setLoginError("Invalid credentials");
+      } else {
+        setLoginError(`Login failed: ${serverMessage || "Backend not responding"} (${AUTH_API_URL})`);
+      }
     }
   };
   const handleLogout = () => {
