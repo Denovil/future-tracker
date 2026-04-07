@@ -5,7 +5,7 @@ const resolveApiOrigin = () => {
   }
 
   if (typeof window !== "undefined") {
-    const { hostname, origin } = window.location;
+    const { hostname } = window.location;
 
     if (
       hostname === "localhost" ||
@@ -15,7 +15,7 @@ const resolveApiOrigin = () => {
       return "http://localhost:5000";
     }
 
-    return origin.replace(/\/$/, "");
+    return "";
   }
 
   return "http://localhost:5000";

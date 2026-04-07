@@ -30,6 +30,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   const [user, setUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState(null);
+  const [loginLoading, setLoginLoading] = useState(false);
   // Delete confirmation dialog state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -52,11 +53,15 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   // Simple admin login handler
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loginLoading) return;
     setLoginError(null);
+    setLoginLoading(true);
     try {
       const res = await axios.post(AUTH_API_URL, {
         username: loginForm.username.trim(),
         password: loginForm.password.trim(),
+      }, {
+        timeout: 15000,
       });
       if (res.data && res.data.success) {
         setUser({ username: loginForm.username.trim() });
@@ -75,6 +80,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
       } else {
         setLoginError(`Login failed: ${serverMessage || "Backend not responding"} (${AUTH_API_URL})`);
       }
+    } finally {
+      setLoginLoading(false);
     }
   };
   const handleLogout = () => {
@@ -206,7 +213,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               }}
             />
             {loginError && <div style={{ color: '#e8544a', fontSize: 13, fontWeight: 600 }}>⚠️ {loginError}</div>}
-            <button type="submit" style={{
+            <button type="submit" disabled={loginLoading} style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
               color: '#fff',
               border: 'none',
@@ -217,8 +224,9 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               cursor: 'pointer',
               transition: 'all 0.2s',
               marginTop: 8,
-              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
-            }} onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(79, 70, 229, 0.4)'} onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.3)'}>Login</button>
+              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+              opacity: loginLoading ? 0.7 : 1
+            }} onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(79, 70, 229, 0.4)'} onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.3)'}>{loginLoading ? "Signing in..." : "Login"}</button>
           </form>
         </div>
       </div>
