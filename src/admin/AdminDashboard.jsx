@@ -28,7 +28,6 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   const [showPriorityDialog, setShowPriorityDialog] = useState(false);
   // Admin login state
   const [user, setUser] = useState(null);
-  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState(null);
   const [loginLoading, setLoginLoading] = useState(false);
   // Delete confirmation dialog state
@@ -58,28 +57,22 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     setLoginLoading(true);
     try {
       const res = await axios.post(AUTH_API_URL, {
-        username: loginForm.username.trim(),
-        password: loginForm.password.trim(),
+        username: "admin",
       }, {
         timeout: 15000,
       });
       if (res.data && res.data.success) {
-        setUser({ username: loginForm.username.trim() });
+        setUser(res.data.user || { username: "admin" });
       } else {
-        setLoginError("Invalid credentials");
+        setLoginError("Unable to open admin");
       }
     } catch (err) {
-      const status = err?.response?.status;
       const serverMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
         err?.message;
 
-      if (status === 401) {
-        setLoginError("Invalid credentials");
-      } else {
-        setLoginError(`Login failed: ${serverMessage || "Backend not responding"} (${AUTH_API_URL})`);
-      }
+      setLoginError(`Login failed: ${serverMessage || "Backend not responding"} (${AUTH_API_URL})`);
     } finally {
       setLoginLoading(false);
     }
@@ -179,39 +172,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
           border: '1px solid rgba(79, 70, 229, 0.1)'
         }}>
-          <h2 style={{ fontSize: 28, marginBottom: 24, fontWeight: 800, color: '#1a1d2e' }}>Admin Login</h2>
+          <h2 style={{ fontSize: 28, marginBottom: 16, fontWeight: 800, color: '#1a1d2e' }}>Admin Access</h2>
+          <p style={{ margin: '0 0 24px 0', color: '#6b7280', fontSize: 14 }}>
+            Credentials have been removed. Use the button below to open the admin dashboard.
+          </p>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <input
-              type="text"
-              placeholder="Username"
-              value={loginForm.username}
-              onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                border: '1.5px solid #d4dce8',
-                fontSize: 14,
-                fontFamily: '"DM Sans", sans-serif',
-                transition: 'all 0.2s',
-                background: '#f5f8fb'
-              }}
-              autoFocus
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginForm.password}
-              onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                border: '1.5px solid #d4dce8',
-                fontSize: 14,
-                fontFamily: '"DM Sans", sans-serif',
-                transition: 'all 0.2s',
-                background: '#f5f8fb'
-              }}
-            />
             {loginError && <div style={{ color: '#e8544a', fontSize: 13, fontWeight: 600 }}>⚠️ {loginError}</div>}
             <button type="submit" disabled={loginLoading} style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
@@ -226,7 +191,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               marginTop: 8,
               boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
               opacity: loginLoading ? 0.7 : 1
-            }} onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(79, 70, 229, 0.4)'} onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.3)'}>{loginLoading ? "Signing in..." : "Login"}</button>
+            }} onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(79, 70, 229, 0.4)'} onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.3)'}>{loginLoading ? "Opening..." : "Enter Admin"}</button>
           </form>
         </div>
       </div>
