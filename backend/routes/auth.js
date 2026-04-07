@@ -18,8 +18,15 @@ try {
 router.post('/login', (req, res) => {
   const username = String(req.body?.username || '').trim();
   const password = String(req.body?.password || '').trim();
+  const expectedUsername = String(process.env.ADMIN_USERNAME || 'admin').trim();
+  const expectedPassword = String(process.env.ADMIN_PASSWORD || 'admin').trim();
 
-  if (username === 'admin' && password === 'admin') {
+  console.log('Admin login attempt', {
+    username,
+    hasPassword: Boolean(password),
+  });
+
+  if (username === expectedUsername && password === expectedPassword) {
     return res.json({ success: true });
   }
   res.status(401).json({ success: false, error: 'Invalid credentials' });
