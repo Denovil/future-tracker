@@ -1,6 +1,5 @@
 import React from "react";
 import { useFeatures } from "../hooks/useFeature";
-import { STATUSES } from "../utils/costants";
 
 export default function HistoryPage() {
   const { features } = useFeatures();
@@ -33,20 +32,18 @@ export default function HistoryPage() {
           <tr style={{ background: "#23263a" }}>
             <th style={{ textAlign: "left", padding: "10px 8px", color: "var(--accent)", fontWeight: 700 }}>Title</th>
             <th style={{ textAlign: "left", padding: "10px 8px", color: "var(--accent)", fontWeight: 700 }}>Description</th>
-            <th style={{ textAlign: "left", padding: "10px 8px", color: "var(--accent)", fontWeight: 700 }}>Priority</th>
             <th style={{ textAlign: "left", padding: "10px 8px", color: "var(--accent)", fontWeight: 700 }}>Status</th>
             <th style={{ textAlign: "left", padding: "10px 8px", color: "var(--accent)", fontWeight: 700 }}>Created</th>
           </tr>
         </thead>
         <tbody>
           {features.length === 0 ? (
-            <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text-2)", padding: 24 }}>No history found.</td></tr>
+            <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text-2)", padding: 24 }}>No history found.</td></tr>
           ) : (
             features.map(f => (
               <tr key={f.id} style={{ borderBottom: "1px solid var(--border)" }}>
                 <td style={{ padding: "10px 8px", color: "var(--text)" }}>{f.title}</td>
                 <td style={{ padding: "10px 8px", color: "var(--text-2)", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.description}</td>
-                <td style={{ padding: "10px 8px", color: "var(--text)" }}>{f.priority}</td>
                 <td style={{ padding: "10px 8px", color: "var(--text)" }}>{f.status}</td>
                 <td style={{ padding: "10px 8px", color: "var(--text-3)", whiteSpace: 'pre-line' }}>{
                   (() => {

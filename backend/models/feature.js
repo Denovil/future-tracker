@@ -1,6 +1,14 @@
 let features = [];
 let nextId = 1;
 
+const normalizeStatus = (value) => (value === "Open" ? "Available" : value);
+
+const parsePrice = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 async function getAllFeatures() {
   return features;
 }
@@ -15,7 +23,12 @@ async function createFeature(data) {
     title: data.title,
     description: data.description,
     priority: data.priority,
-    status: data.status,
+    status: normalizeStatus(data.status),
+    price: parsePrice(data.price),
+    sellerName: data.sellerName || "",
+    location: data.location || "",
+    condition: data.condition || "",
+    brand: data.brand || "",
     createdAt: new Date().toISOString(),
     image: data.image || null,
     imageUrl: data.imageUrl || null,
@@ -35,7 +48,14 @@ async function createFeature(data) {
 async function updateFeature(id, data) {
   const idx = features.findIndex(f => f.id === Number(id));
   if (idx === -1) return null;
-  features[idx] = { ...features[idx], ...data };
+  const updates = { ...data };
+  if (Object.prototype.hasOwnProperty.call(updates, "status")) {
+    updates.status = normalizeStatus(updates.status);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "price")) {
+    updates.price = parsePrice(updates.price);
+  }
+  features[idx] = { ...features[idx], ...updates };
   return features[idx];
 }
 

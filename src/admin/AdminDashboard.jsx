@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AdminFeatureModal from "./AdminFeatureModal";
 import axios from "axios";
 import { API_ORIGIN, API_URL } from "../utils/api";
+import { normalizeStatus } from "../utils/constants";
 
 const AUTH_API_URL = `${API_ORIGIN}/api/auth/login`;
 const MOCK_TITLES = new Set([
@@ -11,8 +12,6 @@ const MOCK_TITLES = new Set([
   "Mobile app support",
   "Advanced search filters",
 ]);
-const priorities = ["Low", "Medium", "High"];
-const statuses = ["Open", "In Progress", "Completed"];
 
 export default function AdminDashboard({ onFeaturesChanged }) {
   const [features, setFeatures] = useState([]);
@@ -23,9 +22,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   const [editing, setEditing] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
-  const [newFeature, setNewFeature] = useState({ title: "", description: "", priority: "Low", status: "Open", videoUrl: "" });
+  const [newFeature, setNewFeature] = useState({ title: "", description: "", priority: "Low", status: "Available", videoUrl: "" });
   const [lastAddedId, setLastAddedId] = useState(null);
-  const [showPriorityDialog, setShowPriorityDialog] = useState(false);
   // Admin login state
   const [user, setUser] = useState(null);
   const [loginError, setLoginError] = useState(null);
@@ -41,7 +39,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     axios.get(API_URL)
       .then(res => setFeatures(res.data.filter((feature) => !MOCK_TITLES.has(feature.title))))
       .catch(err => {
-        setError("Failed to fetch features");
+        setError("Failed to fetch spare listings");
         setErrorDetails(err?.message || JSON.stringify(err));
         console.error("Fetch features error:", err);
       })
@@ -84,7 +82,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   // Add, edit, delete handlers (implement as needed)
   const handleAdd = async () => {
     if (!newFeature.title.trim() || !newFeature.description.trim()) {
-      setError("Title and description are required.");
+      setError("Part name and description are required.");
       return;
     }
     setError(null);
@@ -108,13 +106,12 @@ export default function AdminDashboard({ onFeaturesChanged }) {
       if (onFeaturesChanged) {
         await onFeaturesChanged();
       }
-      setNewFeature({ title: "", description: "", priority: "Low", status: "Open", videoUrl: "" });
+      setNewFeature({ title: "", description: "", priority: "Low", status: "Available", videoUrl: "" });
       setImageFile(null);
       setAdding(false);
       setLastAddedId(res.data.id || res.data._id);
-      setShowPriorityDialog(true);
     } catch (err) {
-      setError("Failed to add feature");
+      setError("Failed to add spare listing");
       setErrorDetails(err?.message || JSON.stringify(err));
     } finally {
       setLoading(false);
@@ -144,7 +141,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
       }
       setDeleteConfirm(null);
     } catch (err) {
-      setError('Failed to delete feature');
+      setError('Failed to delete spare listing');
       setErrorDetails(err?.message || JSON.stringify(err));
     } finally {
       setLoading(false);
@@ -239,8 +236,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: 'inline-block'
-            }}>Admin Feature Management</h2>
-            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 0 }}>Manage, prioritize, and update all features in one place.</p>
+            }}>Admin Spare Listings</h2>
+            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 0 }}>Post and manage car spare parts for your marketplace storefront.</p>
           </div>
           <button onClick={handleLogout} style={{
             background: 'linear-gradient(135deg, #e8544a 0%, #dc3545 100%)',
@@ -266,7 +263,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
             marginBottom: 24,
             color: '#4f46e5',
             fontWeight: 600
-          }}>⏳ Loading features...</div>
+          }}>⏳ Loading spare listings...</div>
         )}
         {error && (
           <div style={{
@@ -299,13 +296,13 @@ export default function AdminDashboard({ onFeaturesChanged }) {
           </div>
         )}
 
-        {/* Add Feature Section */}
+        {/* Add Listing Section */}
         <div style={{
           marginBottom: 32,
           paddingBottom: 32,
           borderBottom: '1px solid rgba(79, 70, 229, 0.1)'
         }}>
-          <h3 style={{ fontSize: 18, margin: '0 0 12px 0', fontWeight: 700, color: '#1a1d2e' }}>Add New Feature</h3>
+          <h3 style={{ fontSize: 18, margin: '0 0 12px 0', fontWeight: 700, color: '#1a1d2e' }}>Add New Spare Listing</h3>
           <button onClick={() => setAdding(true)} style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
             color: '#fff',
@@ -317,7 +314,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
             cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
             transition: 'all 0.2s'
-          }} onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>+ Add Feature</button>
+          }} onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>+ Add Spare Listing</button>
         </div>
       {adding && (
         <AdminFeatureModal
@@ -331,6 +328,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               formData.append("description", form.description);
               formData.append("priority", form.priority);
               formData.append("status", form.status);
+              formData.append("price", form.price || "");
+              formData.append("sellerName", form.sellerName || "");
+              formData.append("location", form.location || "");
+              formData.append("condition", form.condition || "");
+              formData.append("brand", form.brand || "");
               if (form.videoUrl) {
                 formData.append("videoUrl", form.videoUrl);
               }
@@ -373,7 +375,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               }
               setImageFile(null);
             } catch (err) {
-              setError("Failed to add feature");
+              setError("Failed to add spare listing");
               setErrorDetails(err?.message || JSON.stringify(err));
             } finally {
               setLoading(false);
@@ -395,6 +397,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               formData.append("description", form.description);
               formData.append("priority", form.priority);
               formData.append("status", form.status);
+              formData.append("price", form.price || "");
+              formData.append("sellerName", form.sellerName || "");
+              formData.append("location", form.location || "");
+              formData.append("condition", form.condition || "");
+              formData.append("brand", form.brand || "");
               if (form.videoUrl) {
                 formData.append("videoUrl", form.videoUrl);
               }
@@ -436,7 +443,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
                 await onFeaturesChanged();
               }
             } catch (err) {
-              setError("Failed to update feature");
+              setError("Failed to update spare listing");
               setErrorDetails(err?.message || JSON.stringify(err));
             } finally {
               setLoading(false);
@@ -447,9 +454,9 @@ export default function AdminDashboard({ onFeaturesChanged }) {
         />
       )}
       
-        {/* All Features Section */}
+        {/* All Listings Section */}
         <div style={{ marginTop: 32 }}>
-          <h3 style={{ fontSize: 18, margin: '0 0 16px 0', fontWeight: 700, color: '#1a1d2e' }}>All Features ({features.length})</h3>
+          <h3 style={{ fontSize: 18, margin: '0 0 16px 0', fontWeight: 700, color: '#1a1d2e' }}>All Spare Listings ({features.length})</h3>
           <div style={{
             overflowX: 'auto',
             borderRadius: 12,
@@ -468,22 +475,26 @@ export default function AdminDashboard({ onFeaturesChanged }) {
                   borderBottom: '2px solid rgba(79, 70, 229, 0.15)'
                 }}>
                   <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Title</th>
-                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Priority</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Part Name</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Seller</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Location</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Brand</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Condition</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Price</th>
                   <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Status</th>
-                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Created</th>
+                  <th style={{ textAlign: 'left', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Posted On</th>
                   <th style={{ textAlign: 'center', padding: '16px 14px', fontWeight: 700, color: '#4f46e5' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {features.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{
+                    <td colSpan="10" style={{
                       padding: '32px 14px',
                       textAlign: 'center',
                       color: '#9ca3af',
                       fontWeight: 500
-                    }}>No features yet. Create one to get started!</td>
+                    }}>No listings yet. Add your first spare part to get started.</td>
                   </tr>
                 ) : (
                   features.map((f, idx) => (
@@ -494,20 +505,12 @@ export default function AdminDashboard({ onFeaturesChanged }) {
                     }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(79, 70, 229, 0.06)'} onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(79, 70, 229, 0.02)'}>
                       <td style={{ padding: '14px 14px', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>#{f.id}</td>
                       <td style={{ padding: '14px 14px', fontWeight: 600, color: '#1a1d2e' }}>{f.title}</td>
-                      <td style={{
-                        padding: '14px 14px',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5
-                      }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: 6,
-                          background: f.priority === 'High' ? 'rgba(232, 84, 74, 0.15)' : f.priority === 'Medium' ? 'rgba(232, 158, 55, 0.15)' : 'rgba(76, 175, 130, 0.15)',
-                          color: f.priority === 'High' ? '#e8544a' : f.priority === 'Medium' ? '#e89e37' : '#4caf82'
-                        }}>{f.priority}</span>
+                      <td style={{ padding: '14px 14px', color: '#6b7280', fontSize: 13 }}>{f.sellerName || "-"}</td>
+                      <td style={{ padding: '14px 14px', color: '#6b7280', fontSize: 13 }}>{f.location || "-"}</td>
+                      <td style={{ padding: '14px 14px', color: '#6b7280', fontSize: 13 }}>{f.brand || "-"}</td>
+                      <td style={{ padding: '14px 14px', color: '#6b7280', fontSize: 13 }}>{f.condition || "-"}</td>
+                      <td style={{ padding: '14px 14px', color: '#6b7280', fontSize: 13 }}>
+                        {Number.isFinite(Number(f.price)) ? `TZS ${Number(f.price).toLocaleString()}` : "-"}
                       </td>
                       <td style={{
                         padding: '14px 14px',
@@ -519,9 +522,9 @@ export default function AdminDashboard({ onFeaturesChanged }) {
                           display: 'inline-block',
                           padding: '4px 10px',
                           borderRadius: 6,
-                          background: f.status === 'Open' ? 'rgba(91, 156, 246, 0.15)' : f.status === 'In Progress' ? 'rgba(232, 158, 55, 0.15)' : 'rgba(76, 175, 130, 0.15)',
-                          color: f.status === 'Open' ? '#5b9cf6' : f.status === 'In Progress' ? '#e89e37' : '#4caf82'
-                        }}>{f.status}</span>
+                          background: normalizeStatus(f.status) === 'Available' ? 'rgba(91, 156, 246, 0.15)' : normalizeStatus(f.status) === 'In Progress' ? 'rgba(232, 158, 55, 0.15)' : 'rgba(76, 175, 130, 0.15)',
+                          color: normalizeStatus(f.status) === 'Available' ? '#5b9cf6' : normalizeStatus(f.status) === 'In Progress' ? '#e89e37' : '#4caf82'
+                        }}>{normalizeStatus(f.status)}</span>
                       </td>
                       <td style={{ padding: '14px 14px', fontSize: 12, color: '#6b7280' }}>{new Date(f.createdAt).toLocaleDateString()}</td>
                       <td style={{ padding: '14px 14px', textAlign: 'center' }}>
@@ -594,7 +597,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
                               border: '1px solid rgba(79, 70, 229, 0.1)',
                               textAlign: 'center'
                             }}>
-                              <h4 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: '#1a1d2e' }}>Delete Feature?</h4>
+                              <h4 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: '#1a1d2e' }}>Delete Spare Listing?</h4>
                               <p style={{ margin: '0 0 20px 0', fontSize: 14, color: '#6b7280' }}>Are you sure you want to delete <strong>{f.title}</strong>? This action cannot be undone.</p>
                               <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                                 <button onClick={() => { handleDelete(f.id); setDeleteConfirm(null); }} style={{
@@ -636,4 +639,6 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     </div>
   );
 }
+
+
 

@@ -1,7 +1,15 @@
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { PRIORITY_META, STATUS_META, formatDate } from "../utils/costants";
+import { formatDate, getStatusLabel, getStatusMeta } from "../utils/constants";
 import { toApiAssetUrl, toFeatureImageUrl } from "../utils/api";
+import { getDisplayPrice, getSellerName } from "../utils/marketplace";
+
+const resolveFeatureImageUrl = (feature) => {
+  if (feature?.image) return toFeatureImageUrl(feature.image);
+  if (!feature?.imageUrl) return null;
+  if (/^https?:\/\//i.test(feature.imageUrl)) return feature.imageUrl;
+  return toApiAssetUrl(feature.imageUrl);
+};
 
 export default function FeatureDetailsPage({ features }) {
   const { id } = useParams();
@@ -33,20 +41,8 @@ export default function FeatureDetailsPage({ features }) {
     );
   }
 
-  const pm = PRIORITY_META[feature.priority];
-  const sm = STATUS_META[feature.status];
-  
-  // Adaptive color based on priority
-  const getAdaptiveColor = (priority) => {
-    const colors = {
-      "High": "#FF6B6B",
-      "Medium": "#FFA500",
-      "Low": "#4CAF50"
-    };
-    return colors[priority] || "#5B7FFF";
-  };
-  
-  const priorityColor = getAdaptiveColor(feature.priority);
+  const sm = getStatusMeta(feature.status);
+  const statusLabel = getStatusLabel(feature.status);
 
   return (
     <div className="feature-details-page" style={{ backgroundColor: "#f5f5f5", minHeight: "100vh" }}>
@@ -131,13 +127,14 @@ export default function FeatureDetailsPage({ features }) {
           {(feature.image || feature.imageUrl) && (
             <div style={{ marginBottom: 0 }}>
               <img
-                src={feature.image ? toFeatureImageUrl(feature.image) : feature.imageUrl}
+                src={resolveFeatureImageUrl(feature)}
                 alt={feature.imageTitle || feature.title}
                 className="feature-details-hero-image"
                 style={{
                   width: "100%",
-                  maxHeight: "450px",
-                  objectFit: "cover",
+                  height: "min(70vh, 520px)",
+                  objectFit: "contain",
+                  backgroundColor: "#fff",
                   borderRadius: "12px",
                   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
                 }}
@@ -379,7 +376,8 @@ export default function FeatureDetailsPage({ features }) {
                       style={{
                         width: "100%",
                         height: "140px",
-                        objectFit: "cover",
+                        objectFit: "contain",
+                        backgroundColor: "#fff",
                         display: "block"
                       }}
                     />
@@ -490,7 +488,7 @@ export default function FeatureDetailsPage({ features }) {
                 padding: "16px",
                 backgroundColor: "white",
                 borderRadius: "8px",
-                border: `2px solid ${priorityColor}20`
+                border: "2px solid #5B7FFF20"
               }}>
                 <p style={{ fontSize: "12px", color: "#999", margin: "0 0 8px 0", textTransform: "uppercase", fontWeight: "600" }}>
                   Submitted Date
@@ -524,6 +522,86 @@ export default function FeatureDetailsPage({ features }) {
                   {feature.id}
                 </p>
               </div>
+
+              <div style={{
+                padding: "16px",
+                backgroundColor: "white",
+                borderRadius: "8px",
+                border: "2px solid #f59e0b20"
+              }}>
+                <p style={{ fontSize: "12px", color: "#999", margin: "0 0 8px 0", textTransform: "uppercase", fontWeight: "600" }}>
+                  Price
+                </p>
+                <p style={{
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  margin: "0",
+                  color: "#b45309"
+                }}>
+                  {getDisplayPrice(feature)}
+                </p>
+              </div>
+
+              <div style={{
+                padding: "16px",
+                backgroundColor: "white",
+                borderRadius: "8px",
+                border: "2px solid #2563eb20"
+              }}>
+                <p style={{ fontSize: "12px", color: "#999", margin: "0 0 8px 0", textTransform: "uppercase", fontWeight: "600" }}>
+                  Seller
+                </p>
+                <p style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  margin: "0",
+                  color: "#1e3a8a"
+                }}>
+                  {getSellerName(feature)}
+                </p>
+              </div>
+
+              {feature.brand && (
+                <div style={{
+                  padding: "16px",
+                  backgroundColor: "white",
+                  borderRadius: "8px",
+                  border: "2px solid #10b98120"
+                }}>
+                  <p style={{ fontSize: "12px", color: "#999", margin: "0 0 8px 0", textTransform: "uppercase", fontWeight: "600" }}>
+                    Brand
+                  </p>
+                  <p style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    margin: "0",
+                    color: "#0f766e"
+                  }}>
+                    {feature.brand}
+                  </p>
+                </div>
+              )}
+
+              {feature.condition && (
+                <div style={{
+                  padding: "16px",
+                  backgroundColor: "white",
+                  borderRadius: "8px",
+                  border: "2px solid #7c3aed20"
+                }}>
+                  <p style={{ fontSize: "12px", color: "#999", margin: "0 0 8px 0", textTransform: "uppercase", fontWeight: "600" }}>
+                    Condition
+                  </p>
+                  <p style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    margin: "0",
+                    color: "#6d28d9"
+                  }}>
+                    {feature.condition}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -546,16 +624,9 @@ export default function FeatureDetailsPage({ features }) {
             </h3>
             
             <div style={{ marginBottom: "16px" }}>
-              <p style={{ fontSize: "11px", color: "#999", margin: "0 0 6px 0", fontWeight: "600", textTransform: "uppercase" }}>Priority</p>
-              <p style={{ fontSize: "16px", fontWeight: "700", margin: "0", color: priorityColor }}>
-                {feature.priority}
-              </p>
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
               <p style={{ fontSize: "11px", color: "#999", margin: "0 0 6px 0", fontWeight: "600", textTransform: "uppercase" }}>Status</p>
               <p style={{ fontSize: "16px", fontWeight: "700", margin: "0", color: sm.color }}>
-                {feature.status}
+                {statusLabel}
               </p>
             </div>
 

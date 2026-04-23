@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { STATUS_META } from "../utils/costants";
+import { getStatusLabel, getStatusMeta } from "../utils/constants";
 import { toFeatureImageUrl } from "../utils/api";
 
 export default function FeatureModal({ feature, onClose }) {
@@ -14,12 +14,8 @@ export default function FeatureModal({ feature, onClose }) {
 
   if (!feature) return null;
 
-  const statusInfo = STATUS_META[feature.status] || {};
-  const priorityColors = {
-    High: "#FF6B6B",
-    Medium: "#FFD93D",
-    Low: "#6BCB77",
-  };
+  const statusInfo = getStatusMeta(feature.status);
+  const statusLabel = getStatusLabel(feature.status);
 
   return (
     <div
@@ -44,10 +40,7 @@ export default function FeatureModal({ feature, onClose }) {
           {/* Badges Row */}
           <div className="badges-row">
             <span className="badge badge-status" style={{ backgroundColor: statusInfo.color }}>
-              {statusInfo.icon} {feature.status}
-            </span>
-            <span className="badge badge-priority" style={{ backgroundColor: priorityColors[feature.priority] }}>
-              ◆ {feature.priority} Priority
+              {statusInfo.icon} {statusLabel}
             </span>
             {feature.submittedDate && (
               <span className="badge badge-date">📅 {feature.submittedDate}</span>
@@ -65,13 +58,7 @@ export default function FeatureModal({ feature, onClose }) {
             <div className="meta-item">
               <label>Status</label>
               <div style={{ padding: "8px 14px", backgroundColor: statusInfo.color + "20", borderRadius: "4px", fontWeight: 600, color: statusInfo.color }}>
-                {statusInfo.icon} {feature.status}
-              </div>
-            </div>
-            <div className="meta-item">
-              <label>Priority</label>
-              <div style={{ padding: "8px 14px", backgroundColor: priorityColors[feature.priority] + "20", borderRadius: "4px", fontWeight: 600, color: priorityColors[feature.priority] }}>
-                ◆ {feature.priority}
+                {statusInfo.icon} {statusLabel}
               </div>
             </div>
             {feature.submittedDate && (

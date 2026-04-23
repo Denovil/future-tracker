@@ -1,20 +1,19 @@
-// This file has been moved to src/.
-import React from "react";
+﻿import React from "react";
 
-export default function EmptyState({ filter, onAdd }) {
-  const isFiltered = filter !== "All";
+export default function EmptyState({ filter, searchQuery, onReset }) {
+  const isFiltered = filter !== "All" || Boolean(searchQuery?.trim());
+
   return (
-    <div className="empty-state">
-      <div className="empty-icon">{isFiltered ? "◎" : "✦"}</div>
-      <h3>{isFiltered ? `No "${filter}" requests` : "No feature requests yet"}</h3>
+    <div className="market-empty-state">
+      <h3>No spare parts found</h3>
       <p>
         {isFiltered
-          ? "Try a different filter or add a new request."
-          : "Start tracking your feature ideas — add the first one."}
+          ? "Try another search or reset your filters to see more listings."
+          : "There are no listings yet. Add your first spare part from the admin dashboard."}
       </p>
-      {!isFiltered && (
-        <button className="btn btn-primary" onClick={onAdd}>
-          Add First Request
+      {isFiltered && (
+        <button type="button" className="marketplace-reset" onClick={onReset}>
+          Reset filters
         </button>
       )}
     </div>

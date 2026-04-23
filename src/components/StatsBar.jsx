@@ -1,29 +1,27 @@
-// This file has been moved to src/.
-import React from "react";
+﻿import React from "react";
+import { getPriceValue } from "../utils/marketplace";
 
 export default function StatsBar({ features }) {
   const total = features.length;
-  const open = features.filter((f) => f.status === "Open").length;
-  const inProgress = features.filter((f) => f.status === "In Progress").length;
-  const completed = features.filter((f) => f.status === "Completed").length;
-  const highPriority = features.filter((f) => f.priority === "High").length;
+  const available = features.filter((f) => f.status !== "Completed").length;
+  const priced = features.filter((f) => getPriceValue(f) != null).length;
+  const withPhotos = features.filter((f) => Boolean(f.image || f.imageUrl)).length;
 
   const stats = [
-    { label: "All Requests", value: total, accent: false },
-    { label: "Not Started", value: open, accent: "open" },
-    { label: "In Development", value: inProgress, accent: "progress" },
-    { label: "Completed", value: completed, accent: "done" },
-    { label: "High Priority", value: highPriority, accent: "high" },
+    { label: "Total Listings", value: total },
+    { label: "Available", value: available },
+    { label: "Priced", value: priced },
+    { label: "With Photos", value: withPhotos },
   ];
 
   return (
-    <div className="stats-bar">
-      {stats.map((s) => (
-        <div key={s.label} className={`stat-item ${s.accent ? `stat-${s.accent}` : ""}`}>
-          <span className="stat-value">{s.value}</span>
-          <span className="stat-label">{s.label}</span>
+    <section className="market-stats" aria-label="Marketplace summary">
+      {stats.map((stat) => (
+        <div key={stat.label} className="market-stat-item">
+          <span className="market-stat-value">{stat.value}</span>
+          <span className="market-stat-label">{stat.label}</span>
         </div>
       ))}
-    </div>
+    </section>
   );
 }
