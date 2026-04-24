@@ -4,6 +4,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { STATUSES } from "../utils/constants";
+import { toApiAssetUrl, toFeatureImageUrl } from "../utils/api";
+import ImageCarousel from "../components/ImageCarousel";
+import { compressImagesForUpload } from "../utils/imageCompression";
 
 const EMPTY = {
   title: "",
@@ -44,6 +47,10 @@ const T = {
   font:        "'Nunito', sans-serif",
   fontBody:    "'DM Sans', sans-serif",
 };
+
+const MAX_IMAGE_UPLOADS = 20;
+const MAX_SINGLE_IMAGE_MB = 10;
+const MAX_SINGLE_IMAGE_BYTES = MAX_SINGLE_IMAGE_MB * 1024 * 1024;
 
 /* ── Keyframe + global style injection ─────────────────────────────────────── */
 if (!document.head.querySelector("[data-amf]")) {
@@ -179,21 +186,54 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
   const [form, setForm]                 = useState(feature ? { ...feature } : { ...EMPTY });
   const [errors, setErrors]             = useState({});
   const [imageFile, setImageFile]       = useState(null);
-  const [imagePreview, setImagePreview] = useState(feature?.imageUrl || null);
+  const [imagePreview, setImagePreview] = useState(() => {
+    if (feature?.image) return toFeatureImageUrl(feature.image);
+    if (feature?.imageUrl) {
+      return /^https?:\/\//i.test(feature.imageUrl) ? feature.imageUrl : toApiAssetUrl(feature.imageUrl);
+    }
+
+    const firstClip = Array.isArray(feature?.imageClips) ? feature.imageClips[0] : null;
+    const firstClipUrl = firstClip?.filePath || firstClip?.url || firstClip?.imageUrl || null;
+    if (!firstClipUrl) return null;
+
+    return /^https?:\/\//i.test(firstClipUrl) ? firstClipUrl : toApiAssetUrl(firstClipUrl);
+  });
+  const [extraImageFiles, setExtraImageFiles] = useState([]);
+  const [extraImagePreviews, setExtraImagePreviews] = useState([]);
+  const [isImageUrlSource, setIsImageUrlSource] = useState(Boolean(feature?.imageUrl && !feature?.image));
   const [dragging, setDragging]         = useState(false);
   const [tab, setTab]                   = useState("upload");
   const [urlInput, setUrlInput]         = useState("");
   const [urlError, setUrlError]         = useState("");
   const [videoUrl, setVideoUrl]         = useState(feature?.videoUrl || "");
   const [videoUrlError, setVideoUrlError] = useState("");
+  const [imageUploadError, setImageUploadError] = useState("");
   const [videoFile, setVideoFile]       = useState(null);
   const [videoDragging, setVideoDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressingImages, setIsCompressingImages] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const titleRef       = useRef(null);
   const fileInputRef   = useRef(null);
   const changeInputRef = useRef(null);
   const videoInputRef  = useRef(null);
   const isEdit         = Boolean(feature);
+  const uploadPreviewImages = [
+    ...(imagePreview ? [{ url: imagePreview, title: "Primary image" }] : []),
+    ...extraImagePreviews.map((preview, index) => ({
+      url: preview.src,
+      title: preview.name || `Image ${index + 2}`,
+    })),
+  ];
+  const isImageLikeFile = (file) =>
+    Boolean(
+      file &&
+      (
+        (file.type && file.type.startsWith("image/")) ||
+        /\.(png|jpe?g|gif|webp)$/i.test(file.name || "")
+      )
+    );
 
   useEffect(() => { titleRef.current?.focus(); }, []);
   useEffect(() => {
@@ -213,8 +253,8 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
           const file = item.getAsFile();
           if (!file) continue;
 
-          if (file.type.startsWith("image/")) {
-            applyFile(file);
+          if (isImageLikeFile(file)) {
+            applyFiles([file]);
             e.preventDefault();
             return; // Only handle one file per paste
           } else if (file.type.startsWith("video/")) {
@@ -247,31 +287,122 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+    if (submitError) setSubmitError("");
     if (errors[name]) setErrors((er) => ({ ...er, [name]: undefined }));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (isSubmitting || isCompressingImages) {
+      if (isCompressingImages) {
+        setSubmitError("Please wait while images are being optimized.");
+      }
+      return;
+    }
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    onSave({ ...form, image: imageFile, imageUrl: imageFile ? undefined : (imagePreview || undefined), videoUrl, video: videoFile });
-    onClose();
+    try {
+      setIsSubmitting(true);
+      setSubmitError("");
+      await onSave({
+        ...form,
+        image: imageFile,
+        imageUrl: isImageUrlSource ? (imagePreview || undefined) : undefined,
+        imageClipFiles: extraImageFiles,
+        videoUrl,
+        video: videoFile
+      });
+    } catch (err) {
+      const serverMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save listing. Please try again.";
+      setSubmitError(serverMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function applyFile(file) {
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!isImageLikeFile(file)) return;
     setImageFile(file);
+    setIsImageUrlSource(false);
     setImagePreview(URL.createObjectURL(file));
+    setImageUploadError("");
     setUrlInput(""); setUrlError("");
+  }
+
+  async function applyFiles(fileList) {
+    const selectedImages = Array.from(fileList || []).filter(
+      (file) => isImageLikeFile(file)
+    );
+    if (!selectedImages.length) return;
+
+    const validImages = selectedImages.filter((file) => file.size <= MAX_SINGLE_IMAGE_BYTES);
+    const skippedCount = selectedImages.length - validImages.length;
+    if (!validImages.length) {
+      setImageUploadError(
+        `Each image should be less than ${MAX_SINGLE_IMAGE_MB}MB for fast upload.`
+      );
+      return;
+    }
+
+    try {
+      setIsCompressingImages(true);
+      const optimizedImages = await compressImagesForUpload(validImages);
+
+      const existingFiles = !isImageUrlSource && imageFile
+        ? [imageFile, ...extraImageFiles]
+        : [];
+      const mergedImages = [...existingFiles, ...optimizedImages].slice(0, MAX_IMAGE_UPLOADS);
+      if (existingFiles.length + optimizedImages.length > MAX_IMAGE_UPLOADS) {
+        setImageUploadError(`Maximum ${MAX_IMAGE_UPLOADS} images allowed per listing.`);
+      } else if (skippedCount > 0) {
+        setImageUploadError(
+          `${skippedCount} image(s) skipped because they are above ${MAX_SINGLE_IMAGE_MB}MB.`
+        );
+      } else {
+        setImageUploadError("");
+      }
+
+      const [primaryImage, ...additionalImages] = mergedImages;
+      applyFile(primaryImage);
+      setExtraImageFiles(additionalImages);
+      setExtraImagePreviews(additionalImages.map((file) => ({
+        name: file.name,
+        size: file.size,
+        src: URL.createObjectURL(file),
+      })));
+    } catch {
+      const existingFiles = !isImageUrlSource && imageFile
+        ? [imageFile, ...extraImageFiles]
+        : [];
+      const mergedImages = [...existingFiles, ...validImages].slice(0, MAX_IMAGE_UPLOADS);
+      const [primaryImage, ...additionalImages] = mergedImages;
+      applyFile(primaryImage);
+      setExtraImageFiles(additionalImages);
+      setExtraImagePreviews(additionalImages.map((file) => ({
+        name: file.name,
+        size: file.size,
+        src: URL.createObjectURL(file),
+      })));
+    } finally {
+      setIsCompressingImages(false);
+    }
   }
 
   function handleDrop(e) {
     e.preventDefault(); setDragging(false);
-    applyFile(e.dataTransfer.files[0]);
+    applyFiles(e.dataTransfer.files);
   }
 
   function removeImage() {
     setImageFile(null); setImagePreview(null);
+    setExtraImageFiles([]);
+    setExtraImagePreviews([]);
+    setImageUploadError("");
+    setIsImageUrlSource(false);
     setUrlInput(""); setUrlError("");
     if (fileInputRef.current)   fileInputRef.current.value = "";
     if (changeInputRef.current) changeInputRef.current.value = "";
@@ -281,7 +412,10 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
     const url = urlInput.trim();
     if (!url) { setUrlError("Please enter a URL."); return; }
     try { new URL(url); } catch { setUrlError("Invalid URL format."); return; }
-    setUrlError(""); setImageFile(null); setImagePreview(url);
+    setUrlError(""); setImageFile(null); setImagePreview(url); setIsImageUrlSource(true);
+    setExtraImageFiles([]);
+    setExtraImagePreviews([]);
+    setImageUploadError("");
   }
 
   // Video file handlers
@@ -522,20 +656,29 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                     fontWeight: 500, color: T.textHint,
                     textTransform: "none", fontSize: 11, letterSpacing: 0,
                   }}>
-                    — optional
+                    optional
+                  </span>
+                  <span style={{
+                    fontWeight: 700, color: "#0f766e",
+                    textTransform: "none", fontSize: 11, letterSpacing: 0,
+                  }}>
+                    Upload 3+ images (max {MAX_IMAGE_UPLOADS})
                   </span>
                 </span>
-                {imagePreview && (
+                {(imagePreview || extraImagePreviews.length > 0) && (
                   <button
                     type="button"
                     className="amf-remove"
                     onClick={removeImage}
+                    disabled={isSubmitting || isCompressingImages}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 5,
                       background: "#FFF0F0", color: T.danger,
                       border: "none", borderRadius: 7,
                       padding: "5px 12px", fontSize: 12, fontWeight: 700,
-                      cursor: "pointer", fontFamily: T.font,
+                      cursor: isSubmitting || isCompressingImages ? "not-allowed" : "pointer",
+                      opacity: isSubmitting || isCompressingImages ? 0.6 : 1,
+                      fontFamily: T.font,
                       transition: "background .15s",
                     }}
                   >
@@ -543,36 +686,39 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                   </button>
                 )}
               </div>
+              {imageUploadError && (
+                <span style={{
+                  color: T.danger, fontSize: 11.5,
+                  marginTop: 6, display: "block",
+                  fontFamily: T.fontBody,
+                }}>
+                  {imageUploadError}
+                </span>
+              )}
+              {isCompressingImages && (
+                <span style={{
+                  color: "#0f766e", fontSize: 11.5,
+                  marginTop: 6, display: "block",
+                  fontFamily: T.fontBody,
+                }}>
+                  Optimizing image quality for faster upload...
+                </span>
+              )}
 
-              {imagePreview ? (
+              {(imagePreview || extraImagePreviews.length > 0) ? (
                 /* ── Preview card ── */
                 <div style={{
                   borderRadius: 14, overflow: "hidden",
                   boxShadow: T.shadow, background: T.bg,
                 }}>
-                  <div style={{ position: "relative" }}>
-                    <img
-                      src={imagePreview} alt="preview"
-                      style={{ display: "block", width: "100%", maxHeight: 200, objectFit: "cover" }}
+                  <div style={{ borderBottom: `1px solid ${T.border}`, background: "#fff" }}>
+                    <ImageCarousel
+                      images={uploadPreviewImages}
+                      autoPlay={uploadPreviewImages.length > 1}
+                      intervalMs={2600}
+                      fit="cover"
+                      containerStyle={{ height: "220px" }}
                     />
-                    {/* gradient */}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "linear-gradient(to top, rgba(0,0,0,.52) 0%, transparent 55%)",
-                      pointerEvents: "none",
-                    }} />
-                    {/* file info */}
-                    <div style={{
-                      position: "absolute", bottom: 10, left: 12,
-                      color: "#fff", fontSize: 12, fontWeight: 600,
-                      display: "flex", alignItems: "center", gap: 5,
-                      fontFamily: T.fontBody,
-                    }}>
-                      {imageFile
-                        ? <><Ic.File /> {imageFile.name} · {(imageFile.size / 1024).toFixed(1)} KB</>
-                        : <><Ic.Link /> URL source</>
-                      }
-                    </div>
                   </div>
                   {/* replace row */}
                   <div style={{
@@ -581,7 +727,9 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                     background: T.bg, borderTop: `1px solid ${T.border}`,
                   }}>
                     <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: T.fontBody }}>
-                      Image attached successfully
+                      {extraImageFiles.length > 0
+                        ? `${extraImageFiles.length + (imagePreview ? 1 : 0)} images attached successfully`
+                        : "Image attached successfully"}
                     </span>
                     <label
                       className="amf-replace amf-ripple"
@@ -590,16 +738,24 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                         background: T.primaryLt, color: T.primary,
                         borderRadius: 7, padding: "6px 14px",
                         fontSize: 12, fontWeight: 700,
-                        cursor: "pointer", fontFamily: T.font,
+                        cursor: isSubmitting || isCompressingImages ? "not-allowed" : "pointer",
+                        opacity: isSubmitting || isCompressingImages ? 0.6 : 1,
+                        pointerEvents: isSubmitting || isCompressingImages ? "none" : "auto",
+                        fontFamily: T.font,
                         transition: "background .15s",
                       }}
                     >
-                      <Ic.Refresh /> Replace
+                      <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 900, lineHeight: 1 }}>+</span>
+                      Add More
                       <input
                         ref={changeInputRef}
-                        type="file" accept="image/*"
+                        type="file" accept="image/*" multiple
                         style={{ display: "none" }}
-                        onChange={(e) => applyFile(e.target.files[0])}
+                        disabled={isSubmitting || isCompressingImages}
+                        onChange={(e) => {
+                          applyFiles(e.target.files);
+                          e.target.value = "";
+                        }}
                       />
                     </label>
                   </div>
@@ -681,7 +837,7 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                           color: T.textPrimary, marginBottom: 5,
                           fontFamily: T.font,
                         }}>
-                          {dragging ? "Drop it here!" : "Drag & drop your image"}
+                          {dragging ? "Drop images here!" : "Drag & drop your images"}
                         </div>
                         <div style={{ fontSize: 13, color: T.textSecondary, fontFamily: T.fontBody }}>
                           or{" "}
@@ -713,9 +869,9 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
                         </div>
                         <input
                           ref={fileInputRef}
-                          type="file" accept="image/*"
+                          type="file" accept="image/*" multiple
                           style={{ display: "none" }}
-                          onChange={(e) => applyFile(e.target.files[0])}
+                          onChange={(e) => applyFiles(e.target.files)}
                         />
                       </div>
                     ) : (
@@ -964,6 +1120,18 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
           </div>
 
 
+          {submitError && (
+            <div style={{
+              margin: "0 24px 8px",
+              color: "#111827",
+              fontSize: 13,
+              fontWeight: 700,
+              fontFamily: T.fontBody,
+            }}>
+              {submitError}
+            </div>
+          )}
+
           <div style={{
             display: "flex", justifyContent: "flex-end", gap: 10,
             padding: "14px 24px 22px", marginTop: 8,
@@ -972,11 +1140,13 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
               type="button"
               className="amf-ghost"
               onClick={onClose}
+              disabled={isSubmitting || isCompressingImages}
               style={{
                 padding: "9px 22px", borderRadius: T.radiusSm,
                 border: `1.5px solid ${T.border}`, background: T.surface,
-                fontSize: 14, fontWeight: 600, cursor: "pointer",
+                fontSize: 14, fontWeight: 600, cursor: isSubmitting || isCompressingImages ? "not-allowed" : "pointer",
                 color: T.textSecondary, fontFamily: T.font,
+                opacity: isSubmitting || isCompressingImages ? 0.6 : 1,
                 transition: "background .15s, border-color .15s",
               }}
             >
@@ -985,18 +1155,20 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
             <button
               type="submit"
               className="amf-primary amf-ripple"
+              disabled={isSubmitting || isCompressingImages}
               style={{
                 padding: "9px 28px", borderRadius: T.radiusSm,
                 border: "none", background: T.primary,
                 color: "#fff", fontSize: 14, fontWeight: 800,
-                cursor: "pointer", fontFamily: T.font,
+                cursor: isSubmitting || isCompressingImages ? "not-allowed" : "pointer", fontFamily: T.font,
+                opacity: isSubmitting || isCompressingImages ? 0.7 : 1,
                 letterSpacing: "0.02em",
                 boxShadow: "0 4px 14px rgba(92,107,192,.35)",
                 transition: "background .15s, box-shadow .15s",
                 display: "flex", alignItems: "center", gap: 7,
               }}
             >
-              {isEdit ? "Save Changes" : "Add Listing"}
+              {isCompressingImages ? "Optimizing Images..." : isSubmitting ? "Saving..." : (isEdit ? "Save Changes" : "Add Listing")}
             </button>
           </div>
         </form>
@@ -1006,4 +1178,8 @@ export default function AdminFeatureModal({ feature, onSave, onClose }) {
     </div>
   );
 }
+
+
+
+
 

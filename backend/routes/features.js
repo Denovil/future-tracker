@@ -19,8 +19,20 @@ const storage = multer.diskStorage({
 
 // File filter to accept images and videos
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'];
-  if (allowedMimes.includes(file.mimetype)) {
+  const allowedMimes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/pjpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  ];
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov'];
+  const extension = path.extname(file.originalname || '').toLowerCase();
+  if (allowedMimes.includes(file.mimetype) || allowedExtensions.includes(extension)) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type'), false);
@@ -57,7 +69,7 @@ router.get('/:id', async (req, res, next) => {
 // Create feature with image and/or video upload
 router.post('/', upload.fields([
   { name: 'image', maxCount: 1 }, 
-  { name: 'imageClip', maxCount: 10 },
+  { name: 'imageClip', maxCount: 20 },
   { name: 'video', maxCount: 10 }  // Allow up to 10 video uploads
 ]), async (req, res, next) => {
   try {
@@ -94,6 +106,9 @@ router.post('/', upload.fields([
           isFile: true
         }));
         data.imageClips = uploadedImageClips;
+        if (!data.image && uploadedImageClips[0]?.fileName) {
+          data.image = uploadedImageClips[0].fileName;
+        }
       }
       // Handle multiple video uploads
       if (req.files.video && req.files.video.length > 0) {
@@ -126,7 +141,7 @@ router.use('/videos', express.static(path.join(__dirname, '../uploads')));
 // Update feature (allow partial update and image/video upload)
 router.put('/:id', upload.fields([
   { name: 'image', maxCount: 1 }, 
-  { name: 'imageClip', maxCount: 10 },
+  { name: 'imageClip', maxCount: 20 },
   { name: 'video', maxCount: 10 }  // Allow up to 10 video uploads
 ]), async (req, res, next) => {
   try {
@@ -168,6 +183,9 @@ router.put('/:id', upload.fields([
           data.imageClips = [...existingFeature.imageClips, ...newImageClips];
         } else {
           data.imageClips = newImageClips;
+        }
+        if (!data.image && newImageClips[0]?.fileName) {
+          data.image = newImageClips[0].fileName;
         }
       }
       // Handle multiple video uploads - append to existing ones

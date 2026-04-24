@@ -5,6 +5,7 @@ import { API_ORIGIN, API_URL } from "../utils/api";
 import { normalizeStatus } from "../utils/constants";
 
 const AUTH_API_URL = `${API_ORIGIN}/api/auth/login`;
+const HEALTH_API_URL = `${API_ORIGIN}/health`;
 const MOCK_TITLES = new Set([
   "Dark mode support",
   "Export to CSV",
@@ -12,6 +13,27 @@ const MOCK_TITLES = new Set([
   "Mobile app support",
   "Advanced search filters",
 ]);
+const LISTING_UPLOAD_TIMEOUT_MS = 120000;
+const QUICK_TIMEOUT_MS = 7000;
+
+const resolveRequestError = (err) => {
+  if (err?.code === "ECONNABORTED") {
+    return "Request timed out. Please check backend server and internet speed.";
+  }
+  if (!err?.response) {
+    return `Cannot connect to backend server at ${API_ORIGIN || "this host"}. Start backend with: cd backend && node app.js`;
+  }
+  return (
+    err?.response?.data?.error ||
+    err?.response?.data?.message ||
+    err?.message ||
+    "Request failed"
+  );
+};
+
+const ensureBackendOnline = async () => {
+  await axios.get(HEALTH_API_URL, { timeout: 4000 });
+};
 
 export default function AdminDashboard({ onFeaturesChanged }) {
   const [features, setFeatures] = useState([]);
@@ -27,6 +49,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
   // Admin login state
   const [user, setUser] = useState(null);
   const [loginError, setLoginError] = useState(null);
+  const [loginNotice, setLoginNotice] = useState(null);
   const [loginLoading, setLoginLoading] = useState(false);
   // Delete confirmation dialog state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -36,11 +59,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     setLoading(true);
     setError(null);
     setErrorDetails(null);
-    axios.get(API_URL)
+    axios.get(API_URL, { timeout: QUICK_TIMEOUT_MS })
       .then(res => setFeatures(res.data.filter((feature) => !MOCK_TITLES.has(feature.title))))
       .catch(err => {
         setError("Failed to fetch spare listings");
-        setErrorDetails(err?.message || JSON.stringify(err));
+        setErrorDetails(resolveRequestError(err));
         console.error("Fetch features error:", err);
       })
       .finally(() => setLoading(false));
@@ -52,12 +75,13 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     e.preventDefault();
     if (loginLoading) return;
     setLoginError(null);
+    setLoginNotice(null);
     setLoginLoading(true);
     try {
       const res = await axios.post(AUTH_API_URL, {
         username: "admin",
       }, {
-        timeout: 15000,
+        timeout: 8000,
       });
       if (res.data && res.data.success) {
         setUser(res.data.user || { username: "admin" });
@@ -65,6 +89,14 @@ export default function AdminDashboard({ onFeaturesChanged }) {
         setLoginError("Unable to open admin");
       }
     } catch (err) {
+      const timedOut = err?.code === "ECONNABORTED" || /timeout/i.test(err?.message || "");
+      const noResponse = !err?.response;
+      if (timedOut || noResponse) {
+        setUser({ username: "admin" });
+        setLoginNotice("Backend is offline. You can open admin view, but Add/Edit/Delete will fail until backend starts on port 5000.");
+        return;
+      }
+
       const serverMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
@@ -175,6 +207,7 @@ export default function AdminDashboard({ onFeaturesChanged }) {
           </p>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {loginError && <div style={{ color: '#e8544a', fontSize: 13, fontWeight: 600 }}>⚠️ {loginError}</div>}
+            {loginNotice && <div style={{ color: '#0f766e', fontSize: 13, fontWeight: 600 }}>{loginNotice}</div>}
             <button type="submit" disabled={loginLoading} style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
               color: '#fff',
@@ -323,6 +356,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
             setError(null);
             setLoading(true);
             try {
+              await ensureBackendOnline();
+              const clipFiles = Array.isArray(form.imageClipFiles) ? form.imageClipFiles : [];
               const formData = new FormData();
               formData.append("title", form.title);
               formData.append("description", form.description);
@@ -339,7 +374,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               if (form.video) {
                 formData.append("video", form.video);
               }
-              if (form.imageClip) {
+              if (clipFiles.length > 0) {
+                clipFiles.forEach((file) => {
+                  formData.append("imageClip", file);
+                });
+              } else if (form.imageClip) {
                 formData.append("imageClip", form.imageClip);
               }
               if (form.imageClipTitle) {
@@ -350,6 +389,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               }
               if (form.image) {
                 formData.append("image", form.image);
+              } else if (!form.imageUrl && clipFiles.length > 0) {
+                formData.append("image", clipFiles[0]);
               }
               if (form.imageUrl) {
                 formData.append("imageUrl", form.imageUrl);
@@ -367,19 +408,23 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               formData.append("imageClips", JSON.stringify(form.imageClips || []));
               
               const res = await axios.post(API_URL, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
+                headers: { "Content-Type": "multipart/form-data" },
+                timeout: LISTING_UPLOAD_TIMEOUT_MS,
               });
               setFeatures(f => [...f, res.data]);
-              if (onFeaturesChanged) {
-                await onFeaturesChanged();
-              }
               setImageFile(null);
+              setAdding(false);
+              if (onFeaturesChanged) {
+                Promise.resolve(onFeaturesChanged()).catch((refreshErr) => {
+                  console.error("Post-save refresh failed:", refreshErr);
+                });
+              }
             } catch (err) {
               setError("Failed to add spare listing");
-              setErrorDetails(err?.message || JSON.stringify(err));
+              setErrorDetails(resolveRequestError(err));
+              throw err;
             } finally {
               setLoading(false);
-              setAdding(false);
             }
           }}
           onClose={() => setAdding(false)}
@@ -392,6 +437,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
             setError(null);
             setLoading(true);
             try {
+              await ensureBackendOnline();
+              const clipFiles = Array.isArray(form.imageClipFiles) ? form.imageClipFiles : [];
               const formData = new FormData();
               formData.append("title", form.title);
               formData.append("description", form.description);
@@ -408,7 +455,11 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               if (form.video) {
                 formData.append("video", form.video);
               }
-              if (form.imageClip) {
+              if (clipFiles.length > 0) {
+                clipFiles.forEach((file) => {
+                  formData.append("imageClip", file);
+                });
+              } else if (form.imageClip) {
                 formData.append("imageClip", form.imageClip);
               }
               if (form.imageClipTitle) {
@@ -419,6 +470,8 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               }
               if (form.image) {
                 formData.append("image", form.image);
+              } else if (!form.imageUrl && clipFiles.length > 0) {
+                formData.append("image", clipFiles[0]);
               }
               if (form.imageUrl) {
                 formData.append("imageUrl", form.imageUrl);
@@ -436,18 +489,24 @@ export default function AdminDashboard({ onFeaturesChanged }) {
               formData.append("imageClips", JSON.stringify(form.imageClips || []));
               
               await axios.put(`${API_URL}/${editing.id}`, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
+                headers: { "Content-Type": "multipart/form-data" },
+                timeout: LISTING_UPLOAD_TIMEOUT_MS,
               });
-              fetchFeatures();
+              setFeatures((current) =>
+                current.map((item) => (item.id === editing.id ? { ...item, ...form } : item))
+              );
               if (onFeaturesChanged) {
-                await onFeaturesChanged();
+                Promise.resolve(onFeaturesChanged()).catch((refreshErr) => {
+                  console.error("Post-update refresh failed:", refreshErr);
+                });
               }
+              handleEditClose();
             } catch (err) {
               setError("Failed to update spare listing");
-              setErrorDetails(err?.message || JSON.stringify(err));
+              setErrorDetails(resolveRequestError(err));
+              throw err;
             } finally {
               setLoading(false);
-              handleEditClose();
             }
           }}
           onClose={handleEditClose}
@@ -639,6 +698,10 @@ export default function AdminDashboard({ onFeaturesChanged }) {
     </div>
   );
 }
+
+
+
+
 
 
 

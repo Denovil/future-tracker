@@ -91,7 +91,7 @@ export default function FeatureTrackerApp({ features: propsFeatures, loading: pr
       setLoading(true);
       setError(null);
       axios
-        .get(API_URL)
+        .get(API_URL, { params: { _ts: Date.now() } })
         .then((res) => setFeatures(res.data))
         .catch(() => setError("Failed to load listings. Please try again."))
         .finally(() => setLoading(false));

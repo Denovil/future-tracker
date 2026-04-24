@@ -1,18 +1,10 @@
 import React from "react";
-import { toApiAssetUrl, toFeatureImageUrl } from "../utils/api";
+import ImageCarousel from "./ImageCarousel";
+import { getFeatureImageSources } from "../utils/featureImages";
 import { getDisplayPrice } from "../utils/marketplace";
 
-const resolveImage = (feature) => {
-  if (feature.image) return toFeatureImageUrl(feature.image);
-  if (feature.imageUrl) {
-    if (/^https?:\/\//i.test(feature.imageUrl)) return feature.imageUrl;
-    return toApiAssetUrl(feature.imageUrl);
-  }
-  return null;
-};
-
 export default function FeatureCard({ feature, onViewDetails }) {
-  const imageUrl = resolveImage(feature);
+  const images = getFeatureImageSources(feature);
   const handleOpen = () => onViewDetails(feature);
 
   return (
@@ -30,8 +22,14 @@ export default function FeatureCard({ feature, onViewDetails }) {
       aria-label={`Open ${feature.title}`}
     >
       <div className="market-card-media">
-        {imageUrl ? (
-          <img src={imageUrl} alt={feature.title} loading="lazy" />
+        {images.length > 0 ? (
+          <ImageCarousel
+            images={images}
+            alt={feature.title}
+            autoPlay={images.length > 1}
+            intervalMs={3200}
+            fit="contain"
+          />
         ) : (
           <div className="market-card-placeholder">No photo available</div>
         )}

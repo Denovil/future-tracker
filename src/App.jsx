@@ -21,7 +21,7 @@ export default function App() {
 
   const loadFeatures = () => {
     setLoading(true);
-    return axios.get(API_URL)
+    return axios.get(API_URL, { params: { _ts: Date.now() } })
       .then(res => setFeatures(res.data.filter((feature) => !MOCK_TITLES.has(feature.title))))
       .finally(() => setLoading(false));
   };

@@ -45,7 +45,13 @@ try {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File is too large. Please upload a smaller image.' });
+  }
+  if (err?.message === 'Invalid file type') {
+    return res.status(400).json({ error: 'Invalid file type. Only image/video files are allowed.' });
+  }
+  return res.status(500).json({ error: err?.message || 'Internal Server Error' });
 });
 
 const PORT = process.env.PORT || 5000;

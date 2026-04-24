@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { getStatusLabel, getStatusMeta } from "../utils/constants";
-import { toFeatureImageUrl } from "../utils/api";
+import ImageCarousel from "./ImageCarousel";
+import { getFeatureImageSources } from "../utils/featureImages";
 
 export default function FeatureModal({ feature, onClose }) {
   // Close on Escape key
@@ -16,6 +17,7 @@ export default function FeatureModal({ feature, onClose }) {
 
   const statusInfo = getStatusMeta(feature.status);
   const statusLabel = getStatusLabel(feature.status);
+  const images = getFeatureImageSources(feature);
 
   return (
     <div
@@ -72,14 +74,17 @@ export default function FeatureModal({ feature, onClose }) {
           </div>
 
           {/* Image if exists */}
-          {(feature.image || feature.imageUrl) && (
+          {images.length > 0 && (
             <div className="section">
               <h3 className="section-title">Screenshot</h3>
               <div className="image-display">
-                <img
-                  src={feature.image ? toFeatureImageUrl(feature.image) : feature.imageUrl}
+                <ImageCarousel
+                  images={images}
                   alt={feature.imageTitle || feature.title}
-                  style={{ maxWidth: "100%", borderRadius: "8px" }}
+                  autoPlay={images.length > 1}
+                  intervalMs={4200}
+                  fit="contain"
+                  containerStyle={{ width: "100%", height: "280px", borderRadius: "8px" }}
                 />
                 {(feature.imageTitle || feature.imageDescription) && (
                   <div style={{ marginTop: "12px" }}>
